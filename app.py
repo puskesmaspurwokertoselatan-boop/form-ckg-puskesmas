@@ -20,13 +20,11 @@ def set_bg_and_style(main_bg_img):
             .stApp {{
                 background: url("data:image/png;base64,{bin_str}");
                 background-size: cover;
-                /* Posisi: Center horizontal, 90% vertikal (naik 10% dari bawah) */
                 background-position: center 90%; 
                 background-repeat: no-repeat;
                 background-attachment: fixed;
             }}
             
-            /* Kotak Hitam Transparan (Kepekatan dikurangi menjadi 0.69) */
             .stMainBlockContainer {{
                 background-color: rgba(0, 0, 0, 0.69);
                 padding: 40px !important;
@@ -66,21 +64,30 @@ def set_bg_and_style(main_bg_img):
                 align-items: flex-end;
             }}
 
+            /* Perbaikan Tombol WA agar identik dengan tombol Streamlit */
             .btn-wa {{
                 background-color: #25D366;
                 color: white !important;
-                padding: 0.5rem 1rem;
                 border-radius: 0.5rem;
                 text-decoration: none;
-                display: flex;
+                display: inline-flex;
                 align-items: center;
                 justify-content: center;
-                font-weight: bold;
-                height: 45px; /* Menyesuaikan tinggi button standar streamlit */
+                font-weight: 400;
+                font-size: 1rem;
+                height: 38.4px; /* Tinggi standar tombol primary Streamlit */
                 width: 100%;
                 transition: 0.3s;
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                box-sizing: border-box;
+                line-height: 1.6;
+                padding: 0px 16px;
             }}
-            .btn-wa:hover {{ background-color: #128C7E; color: white !important; }}
+            .btn-wa:hover {{ 
+                background-color: #128C7E; 
+                color: white !important;
+                border-color: #25D366;
+            }}
             </style>
             """,
             unsafe_allow_html=True
@@ -95,7 +102,7 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 st.title("🏥 CKG SEKOLAH PUSKESMAS PURWOKERTO SELATAN")
 
-# Data Sekolah
+# Data Sekolah (Tetap sama)
 data_sekolah = {
     "SD": {
         "KARANGKLESEM": ["Sekolah Dasar Negeri 1 Karangklesem Kecamatan Purwokerto Selatan", "Sekolah Dasar Negeri 3 Karangklesem Kecamatan Purwokerto Selatan", "Sekolah Dasar Negeri 4 Karangklesem Kecamatan Purwokerto Selatan", "MIS DIPONEGORO 03 KARANGKLESEM", "SD IT HARAPAN BUNDA", "SD IT AZ-AZAHRA", "SD ISLAM BINA INSAN MANDIRI PURWOKERTO"],
@@ -143,7 +150,6 @@ status_nikah = st.selectbox("Status Pernikahan", ["Belum Kawin", "Kawin"])
 st.subheader("Data Pendidikan")
 jenjang_input = st.selectbox("Jenjang Pendidikan", ["-- Pilih Jenjang --", "SD", "SMP", "SMA/SMK"], index=0)
 
-# Inisialisasi variabel bantu
 angka_kelas = "-- Pilih --"
 kelurahan_sekolah = "-- Pilih --"
 sekolah_terpilih = "-- Pilih --"
@@ -188,7 +194,6 @@ with col_btn2:
 
 # --- LOGIKA PENYIMPANAN ---
 if submit:
-    # List nilai default yang dianggap belum dipilih
     invalid_values = [None, "", "-- Pilih --", "-- Pilih Jenjang --", "-- Pilih Kelas --", "-- Pilih Kelurahan --", "-- Pilih Sekolah --"]
     
     if any(x in invalid_values for x in [nama_lengkap, wa, alamat_domisili, jenjang_input, angka_kelas, kelurahan_sekolah, sekolah_terpilih, gender]):
@@ -197,7 +202,6 @@ if submit:
         try:
             with st.spinner("Sedang memproses..."):
                 df_lama = conn.read(worksheet="MASTER_DATA", ttl=0)
-                
                 new_data = {
                     "nama_lengkap": str(nama_lengkap).upper(),
                     "tanggal_lahir": str(tgl_lahir),
@@ -217,10 +221,8 @@ if submit:
                     "ID_TRANSAKSI": str(uuid.uuid4())[:8].upper(),
                     "TIMESTAMP": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 }
-                
                 updated_df = pd.concat([df_lama, pd.DataFrame([new_data])], ignore_index=True)
                 conn.update(worksheet="MASTER_DATA", data=updated_df)
-                
                 st.success(f"✅ Data {nama_lengkap} Berhasil Tersimpan!")
                 st.balloons()
         except Exception as e:
