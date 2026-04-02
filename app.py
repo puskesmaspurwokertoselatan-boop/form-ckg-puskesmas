@@ -17,19 +17,19 @@ def set_bg_and_style(main_bg_img):
         st.markdown(
             f"""
             <style>
-            /* Background Gambar Utama */
             .stApp {{
                 background: url("data:image/png;base64,{bin_str}");
                 background-size: cover;
-                background-position: center; 
+                /* Posisi: Center horizontal, 90% vertikal (naik 10% dari bawah) */
+                background-position: center 90%; 
                 background-repeat: no-repeat;
                 background-attachment: fixed;
             }}
             
-            /* Membungkus seluruh konten dalam kotak hitam transparan */
+            /* Kotak Hitam Transparan (Kepekatan dikurangi menjadi 0.69) */
             .stMainBlockContainer {{
-                background-color: rgba(0, 0, 0, 0.75);
-                padding: 50px !important;
+                background-color: rgba(0, 0, 0, 0.69);
+                padding: 40px !important;
                 border-radius: 20px;
                 box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
                 color: white;
@@ -37,14 +37,12 @@ def set_bg_and_style(main_bg_img):
                 margin-bottom: 30px;
             }}
 
-            /* Warna teks label widget */
             [data-testid="stWidgetLabel"] p {{ 
                 color: white !important; 
                 font-weight: bold; 
                 font-size: 1rem;
             }}
 
-            /* Judul Utama */
             h1 {{
                 color: white !important;
                 text-shadow: 2px 2px 10px #000000;
@@ -55,7 +53,6 @@ def set_bg_and_style(main_bg_img):
                 margin-bottom: 25px;
             }}
 
-            /* Subheader */
             h3 {{
                 color: #25D366 !important;
                 border-bottom: 2px solid #25D366;
@@ -63,7 +60,12 @@ def set_bg_and_style(main_bg_img):
                 margin-top: 20px;
             }}
 
-            /* Tombol WhatsApp Custom */
+            /* Menyejajarkan tombol Simpan dan WhatsApp */
+            [data-testid="column"] {{
+                display: flex;
+                align-items: flex-end;
+            }}
+
             .btn-wa {{
                 background-color: #25D366;
                 color: white !important;
@@ -74,11 +76,11 @@ def set_bg_and_style(main_bg_img):
                 align-items: center;
                 justify-content: center;
                 font-weight: bold;
-                height: 45px;
+                height: 45px; /* Menyesuaikan tinggi button standar streamlit */
+                width: 100%;
                 transition: 0.3s;
-                margin-top: 28px;
             }}
-            .btn-wa:hover {{ background-color: #128C7E; }}
+            .btn-wa:hover {{ background-color: #128C7E; color: white !important; }}
             </style>
             """,
             unsafe_allow_html=True
@@ -126,40 +128,48 @@ data_sekolah = {
 
 # --- BAGIAN FORM ---
 st.subheader("Data Identitas")
-nama_lengkap = st.text_input("Nama Lengkap")
+nama_lengkap = st.text_input("Nama Lengkap", placeholder="Contoh: ADZRIEL ...")
 
 col1, col2 = st.columns(2)
 with col1:
-    tgl_lahir = st.date_input("Tanggal Larir", min_value=datetime(2000, 1, 1))
-    gender = st.selectbox("Jenis Kelamin", ["Laki-laki", "Perempuan"])
+    tgl_lahir = st.date_input("Tanggal Lahir", min_value=datetime(2000, 1, 1), value=None)
+    gender = st.selectbox("Jenis Kelamin", ["-- Pilih --", "Laki-laki", "Perempuan"], index=0)
 with col2:
-    wa = st.text_input("No. WhatsApp")
+    wa = st.text_input("No. WhatsApp", placeholder="Contoh: 08123456789")
     disabilitas = st.selectbox("Disabilitas", ["Tidak", "Netra", "Rungu", "Daksa", "Grahita", "Lainnya"])
 
 status_nikah = st.selectbox("Status Pernikahan", ["Belum Kawin", "Kawin"])
 
 st.subheader("Data Pendidikan")
-jenjang_input = st.selectbox("Jenjang Pendidikan", ["SD", "SMP", "SMA/SMK"], key="main_jenjang")
+jenjang_input = st.selectbox("Jenjang Pendidikan", ["-- Pilih Jenjang --", "SD", "SMP", "SMA/SMK"], index=0)
 
-# Logic Kelas Dinamis
-if jenjang_input == "SD":
-    list_kelas = ["1", "2", "3", "4", "5", "6"]
-elif jenjang_input == "SMP":
-    list_kelas = ["7", "8", "9"]
+# Inisialisasi variabel bantu
+angka_kelas = "-- Pilih --"
+kelurahan_sekolah = "-- Pilih --"
+sekolah_terpilih = "-- Pilih --"
+
+if jenjang_input != "-- Pilih Jenjang --":
+    if jenjang_input == "SD":
+        list_kelas = ["1", "2", "3", "4", "5", "6"]
+    elif jenjang_input == "SMP":
+        list_kelas = ["7", "8", "9"]
+    else:
+        list_kelas = ["10", "11", "12"]
+
+    col_edu1, col_edu2 = st.columns(2)
+    with col_edu1:
+        angka_kelas = st.selectbox("Pilih Kelas", ["-- Pilih Kelas --"] + list_kelas, key=f"kelas_{jenjang_input}")
+    with col_edu2:
+        list_kel = ["-- Pilih Kelurahan --"] + list(data_sekolah[jenjang_input].keys())
+        kelurahan_sekolah = st.selectbox("Kelurahan Sekolah", list_kel, key=f"kel_{jenjang_input}")
+
+    if kelurahan_sekolah != "-- Pilih Kelurahan --":
+        sekolah_terpilih = st.selectbox("Nama Sekolah", ["-- Pilih Sekolah --"] + data_sekolah[jenjang_input][kelurahan_sekolah], key=f"sch_{jenjang_input}_{kelurahan_sekolah}")
 else:
-    list_kelas = ["10", "11", "12"]
-
-col_edu1, col_edu2 = st.columns(2)
-with col_edu1:
-    angka_kelas = st.selectbox("Pilih Kelas", list_kelas, key=f"kelas_{jenjang_input}")
-with col_edu2:
-    list_kel = list(data_sekolah[jenjang_input].keys())
-    kelurahan_sekolah = st.selectbox("Kelurahan Sekolah", list_kel, key=f"kel_{jenjang_input}")
-
-sekolah_terpilih = st.selectbox("Nama Sekolah", data_sekolah[jenjang_input][kelurahan_sekolah], key=f"sch_{jenjang_input}_{kelurahan_sekolah}")
+    st.info("Silakan tentukan Jenjang Pendidikan terlebih dahulu.")
 
 st.subheader("Data Domisili")
-alamat_domisili = st.text_input("Alamat Domisili (RT/RW)")
+alamat_domisili = st.text_input("Alamat Domisili (RT/RW)", placeholder="Contoh: RT 02 / RW 01")
 detail_alamat = st.text_area("Detail Alamat (Nama Jalan/Blok)")
 
 c1, c2, c3 = st.columns(3)
@@ -169,6 +179,7 @@ with c3: prov = st.text_input("Propinsi", value="Jawa Tengah")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
+# SEJAJARKAN TOMBOL
 col_btn1, col_btn2 = st.columns(2)
 with col_btn1:
     submit = st.button("SIMPAN DATA", type="primary", use_container_width=True)
@@ -177,7 +188,12 @@ with col_btn2:
 
 # --- LOGIKA PENYIMPANAN ---
 if submit:
-    if nama_lengkap and wa and alamat_domisili:
+    # List nilai default yang dianggap belum dipilih
+    invalid_values = [None, "", "-- Pilih --", "-- Pilih Jenjang --", "-- Pilih Kelas --", "-- Pilih Kelurahan --", "-- Pilih Sekolah --"]
+    
+    if any(x in invalid_values for x in [nama_lengkap, wa, alamat_domisili, jenjang_input, angka_kelas, kelurahan_sekolah, sekolah_terpilih, gender]):
+        st.error("❌ Mohon lengkapi semua data wajib!")
+    else:
         try:
             with st.spinner("Sedang memproses..."):
                 df_lama = conn.read(worksheet="MASTER_DATA", ttl=0)
@@ -208,6 +224,4 @@ if submit:
                 st.success(f"✅ Data {nama_lengkap} Berhasil Tersimpan!")
                 st.balloons()
         except Exception as e:
-            st.error(f"⚠️ Error: {e}")
-    else:
-        st.error("Wajib isi Nama, WhatsApp, dan Domisili!")
+            st.error(f"⚠️ Terjadi Kesalahan: {e}")
