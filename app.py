@@ -8,7 +8,7 @@ import base64
 # --- CONFIG ---
 st.set_page_config(page_title="Form UDIKSAR CKG PUSKESMAS", layout="centered")
 
-# --- FUNGSI BACKGROUND LAYAR PENUH ---
+# --- FUNGSI BACKGROUND ---
 def set_bg_local(main_bg_img):
     try:
         with open(main_bg_img, "rb") as f:
@@ -24,17 +24,6 @@ def set_bg_local(main_bg_img):
                 background-repeat: no-repeat;
                 background-attachment: fixed;
             }}
-            
-            @media (max-width: 768px) {{
-                .stApp {{
-                    background-attachment: scroll;
-                    background-position: center 90%;
-                }}
-                [data-testid="stForm"] {{
-                    padding: 15px;
-                }}
-            }}
-
             [data-testid="stForm"] {{
                 background-color: rgba(0, 0, 0, 0.7);
                 padding: 30px;
@@ -42,12 +31,7 @@ def set_bg_local(main_bg_img):
                 box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
                 color: white;
             }}
-            
-            [data-testid="stWidgetLabel"] p {{
-                color: white !important;
-                font-weight: bold;
-            }}
-
+            [data-testid="stWidgetLabel"] p {{ color: white !important; font-weight: bold; }}
             h1 {{
                 color: white !important;
                 text-shadow: 2px 2px 10px #000000;
@@ -56,7 +40,6 @@ def set_bg_local(main_bg_img):
                 padding: 15px;
                 border-radius: 10px;
             }}
-
             .btn-wa {{
                 background-color: #25D366;
                 color: white !important;
@@ -68,38 +51,31 @@ def set_bg_local(main_bg_img):
                 justify-content: center;
                 font-weight: bold;
                 height: 45px;
-                border: none;
                 transition: 0.3s;
             }}
-            .btn-wa:hover {{
-                background-color: #128C7E;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-            }}
+            .btn-wa:hover {{ background-color: #128C7E; }}
             </style>
             """,
             unsafe_allow_html=True
         )
-    except FileNotFoundError:
-        st.warning(f"⚠️ File '{main_bg_img}' tidak ditemukan.")
+    except:
+        pass
 
-# PANGGIL FOTO
 set_bg_local("IMG_20260402_084603.jpg")
 
-# --- KONEKSI GSHEETS ---
+# --- KONEKSI GSHEETS (MANDATORY SECRETS) ---
+# Di sini kita kosongkan agar dia WAJIB baca dari TOML [connections.gsheets]
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 st.title("🏥 CKG SEKOLAH PUSKESMAS PURWOKERTO SELATAN")
 
-# --- BARIS DEBUG (HANYA UNTUK CEK KONEKSI) ---
-# Jika ini muncul tanda merah di aplikasi, berarti Secrets di dashboard Streamlit bermasalah.
+# --- DEBUG CHECK ---
 if "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
-    st.success("✅ Sistem mendeteksi konfigurasi Secrets.")
+    st.sidebar.success("✅ Secrets Terhubung")
 else:
-    st.error("❌ Kunci Secrets TIDAK Terdeteksi! Periksa menu Secrets di dashboard Streamlit Cloud.")
+    st.sidebar.error("❌ Secrets Belum Terpasang")
 
-st.markdown("---")
-
-# Data Sekolah Formal
+# Data Sekolah
 data_sekolah = {
     "SD": {
         "KARANGKLESEM": ["Sekolah Dasar Negeri 1 Karangklesem Kecamatan Purwokerto Selatan", "Sekolah Dasar Negeri 3 Karangklesem Kecamatan Purwokerto Selatan", "Sekolah Dasar Negeri 4 Karangklesem Kecamatan Purwokerto Selatan", "MIS DIPONEGORO 03 KARANGKLESEM", "SD IT HARAPAN BUNDA", "SD IT AZ-AZAHRA", "SD ISLAM BINA INSAN MANDIRI PURWOKERTO"],
@@ -146,7 +122,6 @@ with st.form("form_udiksar"):
 
     st.subheader("Data Pendidikan")
     jenjang_input = st.selectbox("Jenjang Pendidikan", ["SD", "SMP", "SMA/SMK"])
-    
     list_angka = ["1", "2", "3", "4", "5", "6"] if jenjang_input == "SD" else ["7", "8", "9"] if jenjang_input == "SMP" else ["10", "11", "12"]
     
     col_edu1, col_edu2 = st.columns(2)
@@ -171,18 +146,14 @@ with st.form("form_udiksar"):
     col_btn1, col_btn2 = st.columns(2)
     with col_btn1:
         submit = st.form_submit_button("SIMPAN DATA", type="primary", use_container_width=True)
-
     with col_btn2:
-        nomor_wa_pic = "6289665803467" 
-        pesan = "Halo PIC CKG, saya butuh bantuan terkait pengisian form pendaftaran."
-        link_wa = f"https://wa.me/{nomor_wa_pic}?text={pesan.replace(' ', '%20')}"
-        st.markdown(f"""<a href="{link_wa}" target="_blank" class="btn-wa">💬 CONTACT US (WA)</a>""", unsafe_allow_html=True)
+        st.markdown(f"""<a href="https://wa.me/6289665803467" target="_blank" class="btn-wa">💬 CONTACT US (WA)</a>""", unsafe_allow_html=True)
 
     if submit:
         if nama_lengkap and wa and alamat_domisili:
             try:
-                # Membaca data tanpa parameter URL agar menggunakan Service Account
-                df_lama = conn.read() 
+                # Mengambil data lama
+                df_lama = conn.read(ttl=0) # ttl=0 agar data selalu fresh
                 
                 new_data = {
                     "nama_lengkap": nama_lengkap.upper(),
@@ -206,7 +177,7 @@ with st.form("form_udiksar"):
                 
                 updated_df = pd.concat([df_lama, pd.DataFrame([new_data])], ignore_index=True)
                 
-                # Update data menggunakan Service Account
+                # Push ke Google Sheets menggunakan Service Account di TOML
                 conn.update(data=updated_df)
                 
                 st.success(f"✅ Data {nama_lengkap} Berhasil Tersimpan!")
