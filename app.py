@@ -31,7 +31,6 @@ def set_bg_local(main_bg_img):
             @media (max-width: 768px) {{
                 .stApp {{
                     background-attachment: scroll;
-                    /* HP juga ikut naik sedikit agar proporsional */
                     background-position: center 90%;
                 }}
                 [data-testid="stForm"] {{
@@ -124,9 +123,12 @@ data_sekolah = {
     }
 }
 
-# Koneksi ke GSheets
+# --- KONEKSI GSHEETS ---
+# Mengambil URL dari Secrets (Direkomendasikan) atau menggunakan URL langsung sebagai fallback
 conn = st.connection("gsheets", type=GSheetsConnection)
-URL_SHEET = "MASUKKAN_URL_ANDA_DI_SINI"
+
+# Ganti URL_SHEET dengan link baru yang kamu berikan
+URL_SHEET = "https://docs.google.com/spreadsheets/d/1EWkjKqYHlzL854qZFjsKc58rib7YWS01ShqBA91StkI/edit?usp=sharing"
 
 st.title("🏥 CKG SEKOLAH PUSKESMAS PURWOKERTO SELATAN")
 st.markdown("---")
@@ -184,7 +186,9 @@ with st.form("form_udiksar"):
     if submit:
         if nama_lengkap and wa and alamat_domisili:
             try:
+                # Membaca data lama dari spreadsheet
                 df_lama = conn.read(spreadsheet=URL_SHEET)
+                
                 new_data = {
                     "nama_lengkap": nama_lengkap.upper(),
                     "tanggal_lahir": tgl_lahir.strftime("%Y-%m-%d"),
@@ -204,8 +208,13 @@ with st.form("form_udiksar"):
                     "ID_TRANSAKSI": str(uuid.uuid4())[:8].upper(),
                     "TIMESTAMP": datetime.now().strftime("%A, %d %B %Y - %H:%M:%S")
                 }
+                
+                # Menggabungkan data lama dan baru
                 updated_df = pd.concat([df_lama, pd.DataFrame([new_data])], ignore_index=True)
+                
+                # Mengupdate spreadsheet
                 conn.update(spreadsheet=URL_SHEET, data=updated_df)
+                
                 st.success(f"✅ Data {nama_lengkap} Berhasil Tersimpan!")
                 st.balloons()
             except Exception as e:
