@@ -8,8 +8,8 @@ import base64
 # --- CONFIG ---
 st.set_page_config(page_title="Form UDIKSAR CKG PUSKESMAS", layout="centered")
 
-# --- FUNGSI BACKGROUND ---
-def set_bg_local(main_bg_img):
+# --- FUNGSI BACKGROUND & STYLING ---
+def set_bg_and_style(main_bg_img):
     try:
         with open(main_bg_img, "rb") as f:
             data = f.read()
@@ -17,30 +17,53 @@ def set_bg_local(main_bg_img):
         st.markdown(
             f"""
             <style>
+            /* Background Gambar Utama */
             .stApp {{
                 background: url("data:image/png;base64,{bin_str}");
                 background-size: cover;
-                background-position: center 90%; 
+                background-position: center; 
                 background-repeat: no-repeat;
                 background-attachment: fixed;
             }}
-            .main-container {{
-                background-color: rgba(0, 0, 0, 0.7);
-                padding: 30px;
-                border-radius: 15px;
+            
+            /* Membungkus seluruh konten dalam kotak hitam transparan */
+            .stMainBlockContainer {{
+                background-color: rgba(0, 0, 0, 0.75);
+                padding: 50px !important;
+                border-radius: 20px;
                 box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
                 color: white;
-                margin-bottom: 20px;
+                margin-top: 30px;
+                margin-bottom: 30px;
             }}
-            [data-testid="stWidgetLabel"] p {{ color: white !important; font-weight: bold; }}
+
+            /* Warna teks label widget */
+            [data-testid="stWidgetLabel"] p {{ 
+                color: white !important; 
+                font-weight: bold; 
+                font-size: 1rem;
+            }}
+
+            /* Judul Utama */
             h1 {{
                 color: white !important;
                 text-shadow: 2px 2px 10px #000000;
                 text-align: center;
-                background-color: rgba(0, 128, 0, 0.6);
+                background-color: rgba(0, 128, 0, 0.7);
                 padding: 15px;
                 border-radius: 10px;
+                margin-bottom: 25px;
             }}
+
+            /* Subheader */
+            h3 {{
+                color: #25D366 !important;
+                border-bottom: 2px solid #25D366;
+                padding-bottom: 5px;
+                margin-top: 20px;
+            }}
+
+            /* Tombol WhatsApp Custom */
             .btn-wa {{
                 background-color: #25D366;
                 color: white !important;
@@ -63,7 +86,7 @@ def set_bg_local(main_bg_img):
     except:
         pass
 
-set_bg_local("IMG_20260402_084603.jpg")
+set_bg_and_style("IMG_20260402_084603.jpg")
 
 # --- KONEKSI GSHEETS ---
 conn = st.connection("gsheets", type=GSheetsConnection)
@@ -101,15 +124,13 @@ data_sekolah = {
     }
 }
 
-# Mulai Container untuk Styling
-st.markdown('<div class="main-container">', unsafe_allow_html=True)
-
+# --- BAGIAN FORM ---
 st.subheader("Data Identitas")
 nama_lengkap = st.text_input("Nama Lengkap")
 
 col1, col2 = st.columns(2)
 with col1:
-    tgl_lahir = st.date_input("Tanggal Lahir", min_value=datetime(2000, 1, 1))
+    tgl_lahir = st.date_input("Tanggal Larir", min_value=datetime(2000, 1, 1))
     gender = st.selectbox("Jenis Kelamin", ["Laki-laki", "Perempuan"])
 with col2:
     wa = st.text_input("No. WhatsApp")
@@ -118,9 +139,9 @@ with col2:
 status_nikah = st.selectbox("Status Pernikahan", ["Belum Kawin", "Kawin"])
 
 st.subheader("Data Pendidikan")
-# Logic dinamis di luar form agar reaktif
-jenjang_input = st.selectbox("Jenjang Pendidikan", ["SD", "SMP", "SMA/SMK"])
+jenjang_input = st.selectbox("Jenjang Pendidikan", ["SD", "SMP", "SMA/SMK"], key="main_jenjang")
 
+# Logic Kelas Dinamis
 if jenjang_input == "SD":
     list_kelas = ["1", "2", "3", "4", "5", "6"]
 elif jenjang_input == "SMP":
@@ -130,12 +151,12 @@ else:
 
 col_edu1, col_edu2 = st.columns(2)
 with col_edu1:
-    angka_kelas = st.selectbox("Pilih Kelas", list_kelas)
+    angka_kelas = st.selectbox("Pilih Kelas", list_kelas, key=f"kelas_{jenjang_input}")
 with col_edu2:
     list_kel = list(data_sekolah[jenjang_input].keys())
-    kelurahan_sekolah = st.selectbox("Kelurahan Sekolah", list_kel)
+    kelurahan_sekolah = st.selectbox("Kelurahan Sekolah", list_kel, key=f"kel_{jenjang_input}")
 
-sekolah_terpilih = st.selectbox("Nama Sekolah", data_sekolah[jenjang_input][kelurahan_sekolah])
+sekolah_terpilih = st.selectbox("Nama Sekolah", data_sekolah[jenjang_input][kelurahan_sekolah], key=f"sch_{jenjang_input}_{kelurahan_sekolah}")
 
 st.subheader("Data Domisili")
 alamat_domisili = st.text_input("Alamat Domisili (RT/RW)")
@@ -154,10 +175,11 @@ with col_btn1:
 with col_btn2:
     st.markdown(f"""<a href="https://wa.me/6289665803467" target="_blank" class="btn-wa">💬 CONTACT US (WA)</a>""", unsafe_allow_html=True)
 
+# --- LOGIKA PENYIMPANAN ---
 if submit:
     if nama_lengkap and wa and alamat_domisili:
         try:
-            with st.spinner("Sedang menyimpan data..."):
+            with st.spinner("Sedang memproses..."):
                 df_lama = conn.read(worksheet="MASTER_DATA", ttl=0)
                 
                 new_data = {
@@ -186,8 +208,6 @@ if submit:
                 st.success(f"✅ Data {nama_lengkap} Berhasil Tersimpan!")
                 st.balloons()
         except Exception as e:
-            st.error(f"⚠️ Terjadi Masalah: {e}")
+            st.error(f"⚠️ Error: {e}")
     else:
-        st.error("Mohon isi semua data wajib (Nama, WA, dan Domisili)!")
-
-st.markdown('</div>', unsafe_allow_html=True)
+        st.error("Wajib isi Nama, WhatsApp, dan Domisili!")
