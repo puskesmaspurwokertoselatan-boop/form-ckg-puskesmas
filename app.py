@@ -64,7 +64,6 @@ def set_bg_local(main_bg_img):
 set_bg_local("IMG_20260402_084603.jpg")
 
 # --- KONEKSI GSHEETS ---
-# Pastikan konfigurasi [connections.gsheets] sudah ada di Secrets Streamlit Cloud
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 st.title("🏥 CKG SEKOLAH PUSKESMAS PURWOKERTO SELATAN")
@@ -152,32 +151,35 @@ with st.form("form_udiksar"):
     if submit:
         if nama_lengkap and wa and alamat_domisili:
             try:
-                # KRUSIAL: Menambahkan worksheet="MASTER_DATA" agar menembak ke tab yang benar
+                # 1. Tarik data lama dari tab MASTER_DATA
                 df_lama = conn.read(worksheet="MASTER_DATA", ttl=0)
                 
+                # 2. Format data baru (Konversi ke string agar tidak Error 400)
                 new_data = {
-                    "nama_lengkap": nama_lengkap.upper(),
-                    "tanggal_lahir": tgl_lahir.strftime("%Y-%m-%d"),
-                    "jenis_kelamin": gender,
-                    "no_whatsapp": wa,
-                    "status_pernikahan": status_nikah,
-                    "disabilitas": disabilitas,
-                    "nama_sekolah": sekolah_terpilih,
+                    "nama_lengkap": str(nama_lengkap).upper(),
+                    "tanggal_lahir": str(tgl_lahir),
+                    "jenis_kelamin": str(gender),
+                    "no_whatsapp": f"'{wa}", # Tambah kutip agar nol depan aman
+                    "status_pernikahan": str(status_nikah),
+                    "disabilitas": str(disabilitas),
+                    "nama_sekolah": str(sekolah_terpilih),
                     "jenjang_pendidikan": f"KELAS {angka_kelas}", 
-                    "alamat_domisili": alamat_domisili,
-                    "detail_alamat": detail_alamat,
+                    "alamat_domisili": str(alamat_domisili),
+                    "detail_alamat": str(detail_alamat),
                     "alamat_sama_sekolah": "Ya",
-                    "Propinsi": prov,
-                    "kabupaten": kab,
-                    "kecamatan": kec,
-                    "Kelurahan": kelurahan_sekolah,
+                    "Propinsi": str(prov),
+                    "kabupaten": str(kab),
+                    "kecamatan": str(kec),
+                    "Kelurahan": str(kelurahan_sekolah),
                     "ID_TRANSAKSI": str(uuid.uuid4())[:8].upper(),
-                    "TIMESTAMP": datetime.now().strftime("%A, %d %B %Y - %H:%M:%S")
+                    "TIMESTAMP": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 }
                 
-                updated_df = pd.concat([df_lama, pd.DataFrame([new_data])], ignore_index=True)
+                # 3. Gabungkan data
+                new_df = pd.DataFrame([new_data])
+                updated_df = pd.concat([df_lama, new_df], ignore_index=True)
                 
-                # KRUSIAL: Menambahkan worksheet="MASTER_DATA" di sini juga
+                # 4. Push ke tab MASTER_DATA
                 conn.update(worksheet="MASTER_DATA", data=updated_df)
                 
                 st.success(f"✅ Data {nama_lengkap} Berhasil Tersimpan!")
