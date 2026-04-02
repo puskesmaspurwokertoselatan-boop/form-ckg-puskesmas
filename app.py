@@ -4,6 +4,7 @@ import pandas as pd
 from datetime import datetime
 import uuid
 import base64
+import time # Import time untuk jeda refresh
 
 # --- CONFIG ---
 st.set_page_config(page_title="Form UDIKSAR CKG PUSKESMAS", layout="centered")
@@ -38,6 +39,7 @@ def set_bg_and_style(main_bg_img):
                 color: white;
                 margin-top: 30px;
                 margin-bottom: 30px;
+                border: 1px solid rgba(255, 255, 255, 0.1);
             }}
 
             [data-testid="stWidgetLabel"] p {{ 
@@ -50,10 +52,12 @@ def set_bg_and_style(main_bg_img):
                 color: white !important;
                 text-shadow: 2px 2px 10px #000000;
                 text-align: center;
-                background-color: rgba(0, 128, 0, 0.7);
-                padding: 15px;
-                border-radius: 10px;
+                background-color: rgba(0, 128, 0, 0.8);
+                padding: 18px;
+                border-radius: 12px;
                 margin-bottom: 25px;
+                font-size: 22px !important;
+                border: 1px solid rgba(255, 255, 255, 0.2);
             }}
 
             h3 {{
@@ -92,6 +96,12 @@ def set_bg_and_style(main_bg_img):
                 color: white !important;
                 border-color: #25D366;
             }}
+
+            /* Fix kolom agar tidak aneh saat diklik */
+            .stTextInput input, .stSelectbox div[data-baseweb="select"], .stDateInput input, .stTextArea textarea {{
+                border: 1px solid #ccc !important;
+                box-shadow: none !important;
+            }}
             </style>
             """,
             unsafe_allow_html=True
@@ -104,9 +114,9 @@ set_bg_and_style("IMG_20260402_084603.jpg")
 # --- KONEKSI GSHEETS ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-st.title("🏥 CKG SEKOLAH PUSKESMAS PURWOKERTO SELATAN")
+st.markdown("<h1>🏥 CKG SEKOLAH PUSKESMAS PWT SELATAN</h1>", unsafe_allow_html=True)
 
-# Data Sekolah (Tetap sama)
+# Data Sekolah
 data_sekolah = {
     "SD": {
         "KARANGKLESEM": ["Sekolah Dasar Negeri 1 Karangklesem Kecamatan Purwokerto Selatan", "Sekolah Dasar Negeri 3 Karangklesem Kecamatan Purwokerto Selatan", "Sekolah Dasar Negeri 4 Karangklesem Kecamatan Purwokerto Selatan", "MIS DIPONEGORO 03 KARANGKLESEM", "SD IT HARAPAN BUNDA", "SD IT AZ-AZAHRA", "SD ISLAM BINA INSAN MANDIRI PURWOKERTO"],
@@ -114,7 +124,7 @@ data_sekolah = {
         "BERKOH": ["Sekolah Dasar Negeri 1 Berkoh Kecamatan Purwokerto Selatan", "Sekolah Dasar Negeri 2 Berkoh Kecamatan Purwokerto Selatan", "Sekolah Dasar Negeri 3 Berkoh Kecamatan Purwokerto Selatan"],
         "PWT KIDUL": ["Sekolah Dasar Negeri 1 Purwokerto Kidul Kecamatan Purwokerto Selatan", "Sekolah Dasar Negeri 3 Purwokerto Kidul Kecamatan Purwokerto Selatan", "SD PALM KIDS PURWOKERTO", "PKBM TERANG MULIA"],
         "PWT KULON": ["Sekolah Dasar Negeri 1 Purwokerto Kulon Kecamatan Purwokerto Selatan", "Sekolah Dasar Negeri 2 Purwokerto Kulon Kecamatan Purwokerto Selatan", "Sekolah Dasar Negeri 3 Purwokerto Kulon Kecamatan Purwokerto Selatan", "SD 3 BAHASA PUTERA HARAPAN"],
-        "TANJUNG": ["Sekolah Dasar Negeri 1 Tanjung Kecamatan Purwokerto Selatan", "Sekolah Dasar Negeri 2 Tanjung Kecamatan Purwokerto Selatan", "Sekolah Dasar Negeri 3 Tanjung Kecamatan Purwokerto Selatan", "SD MUHAMMADIYAH TANJUNG", "SDIT MUTIARA HATI", "SLB C DAN C1 YAKUT PURWOKERTO"],
+        "TANJUNG": ["Sekolah Dasar Negeri 1 Tanjung Kecamatan Purwokerto Selatan", "Sekolah Dasar Negeri 2 Tanjung Kecamatan Purwokerto Selatan", "Sekolah Dasar Negeri 3 Tanjung Kecamatan Purwokerto Selatan", "SD MUHAMMADIYAH Tanjung", "SDIT MUTIARA HATI", "SLB C DAN C1 YAKUT PURWOKERTO"],
         "KARANG PUCUNG": ["Sekolah Dasar Negeri 1 Karangpucung Kecamatan Purwokerto Selatan", "Sekolah Dasar Negeri 4 Karangpucung Kecamatan Purwokerto Selatan", "Sekolah Dasar Negeri 5 Karangpucung Kecamatan Purwokerto Selatan", "MIS AL-IKHLAS KARANGPUCUNG", "MIS MA`ARIF NU KARANGPUCUNG"]
     },
     "SMP": {
@@ -150,7 +160,8 @@ with col2:
     wa = st.text_input("No. WhatsApp", placeholder="Contoh: 08123456789")
     disabilitas = st.selectbox("Disabilitas", ["Tidak", "Netra", "Rungu", "Daksa", "Grahita", "Lainnya"])
 
-status_nikah = st.selectbox("Status Pernikahan", ["Belum Kawin", "Kawin"])
+# NILAI DEFAULT (DIHAPUS DARI TAMPILAN)
+status_nikah_default = "Belum Menikah"
 
 st.subheader("Data Pendidikan")
 jenjang_input = st.selectbox("Jenjang Pendidikan", ["-- Pilih Jenjang --", "SD", "SMP", "SMA/SMK"], index=0)
@@ -215,7 +226,7 @@ if submit:
                     "tanggal_lahir": str(tgl_lahir),
                     "jenis_kelamin": str(gender),
                     "no_whatsapp": f"'{wa}",
-                    "status_pernikahan": str(status_nikah),
+                    "status_pernikahan": status_nikah_default, # MENGGUNAKAN NILAI DEFAULT
                     "disabilitas": str(disabilitas),
                     "nama_sekolah": str(sekolah_terpilih),
                     "jenjang_pendidikan": f"KELAS {angka_kelas}", 
@@ -233,12 +244,9 @@ if submit:
                 updated_df = pd.concat([df_lama, pd.DataFrame([new_data])], ignore_index=True)
                 conn.update(worksheet="MASTER_DATA", data=updated_df)
                 
-                # Feedback Sukses
                 st.success(f"✅ Data {nama_lengkap} Berhasil Tersimpan!")
                 st.balloons()
                 
-                # Jeda sebentar agar user sempat lihat pesan sukses, lalu refresh form
-                import time
                 time.sleep(2)
                 st.rerun()
 
