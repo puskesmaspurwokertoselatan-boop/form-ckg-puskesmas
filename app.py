@@ -31,73 +31,69 @@ def set_bg_and_style(main_bg_img):
             }}
             
             .stMainBlockContainer {{
-                background-color: rgba(0, 0, 0, 0.69);
-                padding: 40px !important;
+                background-color: rgba(0, 0, 0, 0.75);
+                padding: 30px !important;
                 border-radius: 20px;
                 box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
                 color: white;
-                margin-top: 30px;
-                margin-bottom: 30px;
-                border: 1px solid rgba(255, 255, 255, 0.1);
-            }}
-
-            [data-testid="stWidgetLabel"] p {{ 
-                color: white !important; 
-                font-weight: bold; 
-                font-size: 1rem;
+                margin-top: 20px;
             }}
 
             h1 {{
                 color: white !important;
-                text-shadow: 2px 2px 10px #000000;
                 text-align: center;
                 background-color: rgba(0, 128, 0, 0.8);
-                padding: 18px;
+                padding: 15px;
                 border-radius: 12px;
-                margin-bottom: 25px;
-                font-size: 22px !important;
-                border: 1px solid rgba(255, 255, 255, 0.2);
+                font-size: 20px !important;
             }}
 
             h3 {{
                 color: #25D366 !important;
                 border-bottom: 2px solid #25D366;
-                padding-bottom: 5px;
                 margin-top: 20px;
             }}
 
-            [data-testid="column"] {{
-                display: flex;
-                align-items: flex-end;
+            /* Styling Tombol Simpan (Merah) */
+            div.stButton > button:first-child {{
+                background-color: #FF4B4B;
+                color: white;
+                border: none;
+                height: 45px;
+                width: 100%;
+                font-weight: bold;
+                border-radius: 10px;
+            }}
+            
+            div.stButton > button:hover {{
+                background-color: #FF2B2B;
+                border: none;
+                color: white;
             }}
 
+            /* Styling Tombol WA (Hijau) */
             .btn-wa {{
                 background-color: #25D366;
                 color: white !important;
-                border-radius: 0.5rem;
+                border-radius: 10px;
                 text-decoration: none;
-                display: inline-flex;
+                display: flex;
                 align-items: center;
                 justify-content: center;
-                font-weight: 400;
-                font-size: 1rem;
-                height: 38.4px; 
+                font-weight: bold;
+                height: 45px;
                 width: 100%;
-                transition: 0.3s;
                 border: 1px solid rgba(255, 255, 255, 0.2);
-                box-sizing: border-box;
-                line-height: 1.6;
-                padding: 0px 16px;
             }}
-            .btn-wa:hover {{ 
-                background-color: #128C7E; 
-                color: white !important;
-                border-color: #25D366;
-            }}
+            .btn-wa:hover {{ background-color: #128C7E; }}
 
-            .stTextInput input, .stSelectbox div[data-baseweb="select"], .stDateInput input, .stTextArea textarea {{
-                border: 1px solid #ccc !important;
-                box-shadow: none !important;
+            /* Responsif untuk HP */
+            @media (max-width: 640px) {{
+                [data-testid="column"] {{
+                    width: 100% !important;
+                    flex: 1 1 100% !important;
+                    margin-bottom: 10px;
+                }}
             }}
             </style>
             """,
@@ -108,6 +104,14 @@ def set_bg_and_style(main_bg_img):
 
 set_bg_and_style("IMG_20260402_084603.jpg")
 
+# --- INITIALIZE SESSION STATE (Untuk Reset Form) ---
+if 'form_idx' not in st.session_state:
+    st.session_state.form_idx = 0
+
+def reset_form():
+    st.session_state.form_idx += 1
+
+# --- KONEKSI GSHEETS ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 st.markdown("<h1>🏥 CKG SEKOLAH PUSKESMAS PWT SELATAN</h1>", unsafe_allow_html=True)
@@ -143,64 +147,57 @@ data_sekolah = {
     }
 }
 
-# --- FORM RESET LOGIC ---
-# Kita gunakan container form agar bisa reset otomatis
-with st.form("udiksar_form", clear_on_submit=True):
-    st.subheader("Data Identitas")
-    nama_lengkap = st.text_input("Nama Lengkap", placeholder="Contoh: ADZRIEL ...")
-    nik = st.text_input("NIK (16 Digit)", placeholder="Masukkan 16 digit NIK")
+# --- BAGIAN FORM (Gunakan key dinamis untuk reset) ---
+f_key = st.session_state.form_idx
 
-    col1, col2 = st.columns(2)
-    with col1:
-        tgl_lahir = st.date_input("Tanggal Lahir", min_value=datetime(2000, 1, 1), value=None)
-        gender = st.selectbox("Jenis Kelamin", ["-- Pilih --", "Laki-laki", "Perempuan"])
-    with col2:
-        wa = st.text_input("No. WhatsApp", placeholder="Contoh: 08123456789")
-        disabilitas = st.selectbox("Disabilitas", ["Tidak", "Netra", "Rungu", "Daksa", "Grahita", "Lainnya"])
+st.subheader("Data Identitas")
+nama_lengkap = st.text_input("Nama Lengkap", placeholder="Contoh: ADZRIEL ...", key=f"nama_{f_key}")
+nik = st.text_input("NIK (16 Digit)", placeholder="Masukkan 16 digit NIK", key=f"nik_{f_key}")
 
-    status_nikah_default = "Belum Menikah"
+col1, col2 = st.columns(2)
+with col1:
+    tgl_lahir = st.date_input("Tanggal Lahir", min_value=datetime(2000, 1, 1), value=None, key=f"tgl_{f_key}")
+    gender = st.selectbox("Jenis Kelamin", ["-- Pilih --", "Laki-laki", "Perempuan"], index=0, key=f"gen_{f_key}")
+with col2:
+    wa = st.text_input("No. WhatsApp", placeholder="Contoh: 08123456789", key=f"wa_{f_key}")
+    disabilitas = st.selectbox("Disabilitas", ["Tidak", "Netra", "Rungu", "Daksa", "Grahita", "Lainnya"], key=f"dis_{f_key}")
 
-    st.subheader("Data Pendidikan")
-    jenjang_input = st.selectbox("Jenjang Pendidikan", ["-- Pilih Jenjang --", "SD", "SMP", "SMA/SMK"])
+st.subheader("Data Pendidikan")
+jenjang_input = st.selectbox("Jenjang Pendidikan", ["-- Pilih Jenjang --", "SD", "SMP", "SMA/SMK"], index=0, key=f"jen_{f_key}")
 
-    # Placeholder untuk data pendidikan yang dinamis
-    angka_kelas = "-- Pilih --"
-    kelurahan_sekolah = "-- Pilih --"
-    sekolah_terpilih = "-- Pilih --"
+angka_kelas = "-- Pilih --"
+kelurahan_sekolah = "-- Pilih --"
+sekolah_terpilih = "-- Pilih --"
 
-    if jenjang_input != "-- Pilih Jenjang --":
-        list_kelas = ["1", "2", "3", "4", "5", "6"] if jenjang_input == "SD" else (["7", "8", "9"] if jenjang_input == "SMP" else ["10", "11", "12"])
-        col_edu1, col_edu2 = st.columns(2)
-        with col_edu1:
-            angka_kelas = st.selectbox("Pilih Kelas", ["-- Pilih Kelas --"] + list_kelas)
-        with col_edu2:
-            list_kel = ["-- Pilih Kelurahan --"] + list(data_sekolah[jenjang_input].keys())
-            kelurahan_sekolah = st.selectbox("Kelurahan Sekolah", list_kel)
-        
-        if kelurahan_sekolah != "-- Pilih Kelurahan --":
-            sekolah_terpilih = st.selectbox("Nama Sekolah", ["-- Pilih Sekolah --"] + data_sekolah[jenjang_input][kelurahan_sekolah])
+if jenjang_input != "-- Pilih Jenjang --":
+    list_kelas = ["1", "2", "3", "4", "5", "6"] if jenjang_input == "SD" else (["7", "8", "9"] if jenjang_input == "SMP" else ["10", "11", "12"])
+    col_edu1, col_edu2 = st.columns(2)
+    with col_edu1:
+        angka_kelas = st.selectbox("Pilih Kelas", ["-- Pilih Kelas --"] + list_kelas, key=f"kls_{f_key}")
+    with col_edu2:
+        list_kel = ["-- Pilih Kelurahan --"] + list(data_sekolah[jenjang_input].keys())
+        kelurahan_sekolah = st.selectbox("Kelurahan Sekolah", list_kel, key=f"kel_{f_key}")
 
-    st.subheader("Data Domisili")
-    alamat_domisili = st.text_input("Alamat Domisili (RT/RW)", placeholder="Contoh: RT 02 / RW 01")
-    detail_alamat = st.text_area("Detail Alamat (Nama Jalan/Blok)")
+    if kelurahan_sekolah != "-- Pilih Kelurahan --":
+        sekolah_terpilih = st.selectbox("Nama Sekolah", ["-- Pilih Sekolah --"] + data_sekolah[jenjang_input][kelurahan_sekolah], key=f"sch_{f_key}")
 
-    c1, c2, c3 = st.columns(3)
-    with c1: kec = st.text_input("Kecamatan", value="Purwokerto Selatan")
-    with c2: kab = st.text_input("Kabupaten", value="Banyumas")
-    with c3: prov = st.text_input("Propinsi", value="Jawa Tengah")
+st.subheader("Data Domisili")
+alamat_domisili = st.text_input("Alamat Domisili (RT/RW)", placeholder="Contoh: RT 02 / RW 01", key=f"dom_{f_key}")
+detail_alamat = st.text_area("Detail Alamat (Nama Jalan/Blok)", key=f"det_{f_key}")
 
-    st.markdown("<br>", unsafe_allow_html=True)
+c1, c2, c3 = st.columns(3)
+with c1: kec = st.text_input("Kecamatan", value="Purwokerto Selatan", key=f"kec_{f_key}")
+with c2: kab = st.text_input("Kabupaten", value="Banyumas", key=f"kab_{f_key}")
+with c3: prov = st.text_input("Propinsi", value="Jawa Tengah", key=f"prov_{f_key}")
 
-    col_btn1, col_btn2 = st.columns(2)
-    with col_btn1:
-        submit = st.form_submit_button("SIMPAN DATA", use_container_width=True)
-    with col_btn2:
-        # Tombol WA ditaruh di luar form submit agar tidak memicu pengiriman data
-        pass
+st.markdown("<br>", unsafe_allow_html=True)
 
-# Tombol WA di luar form agar tetap berfungsi sebagai link
-if not submit:
-    st.markdown(f"""<a href="https://wa.me/6289665803467" target="_blank" class="btn-wa" style="margin-top:-95px; position:relative; z-index:999;">💬 CONTACT US (WA)</a>""", unsafe_allow_html=True)
+# --- TOMBOL SEJAJAR & BERWARNA ---
+col_btn1, col_btn2 = st.columns(2)
+with col_btn1:
+    submit = st.button("SIMPAN DATA", type="primary", use_container_width=True)
+with col_btn2:
+    st.markdown(f"""<a href="https://wa.me/6289665803467" target="_blank" class="btn-wa">💬 CONTACT US (WA)</a>""", unsafe_allow_html=True)
 
 # --- LOGIKA PENYIMPANAN ---
 if submit:
@@ -208,12 +205,8 @@ if submit:
     
     if any(x in invalid_values for x in [nama_lengkap, nik, wa, alamat_domisili, jenjang_input, angka_kelas, kelurahan_sekolah, sekolah_terpilih, gender]):
         st.error("❌ Mohon lengkapi semua data wajib!")
-        time.sleep(2)
-        st.rerun()
     elif len(nik) != 16 or not nik.isdigit():
         st.error("❌ NIK harus berjumlah 16 digit angka!")
-        time.sleep(2)
-        st.rerun()
     else:
         try:
             with st.spinner("Sedang memproses..."):
@@ -224,7 +217,7 @@ if submit:
                     "tanggal_lahir": str(tgl_lahir),
                     "jenis_kelamin": str(gender),
                     "no_whatsapp": f"'{wa}",
-                    "status_pernikahan": status_nikah_default,
+                    "status_pernikahan": "Belum Menikah",
                     "disabilitas": str(disabilitas),
                     "nama_sekolah": str(sekolah_terpilih),
                     "jenjang_pendidikan": f"KELAS {angka_kelas}", 
@@ -246,7 +239,8 @@ if submit:
                 st.balloons()
                 
                 time.sleep(2)
-                st.rerun() # Ini akan merefresh halaman dan karena clear_on_submit=True, form jadi kosong bersih
+                reset_form() # Reset ID Key agar form kosong kembali
+                st.rerun()
 
         except Exception as e:
             st.error(f"⚠️ Terjadi Kesalahan: {e}")
