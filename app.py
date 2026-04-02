@@ -4,7 +4,7 @@ import pandas as pd
 from datetime import datetime
 import uuid
 import base64
-import time # Import time untuk jeda refresh
+import time 
 
 # --- CONFIG ---
 st.set_page_config(page_title="Form UDIKSAR CKG PUSKESMAS", layout="centered")
@@ -18,7 +18,6 @@ def set_bg_and_style(main_bg_img):
         st.markdown(
             f"""
             <style>
-            /* Menghilangkan Toolbar Atas (GitHub, Menu, dll) */
             header {{visibility: hidden;}}
             [data-testid="stHeader"] {{background: rgba(0,0,0,0);}}
             footer {{visibility: hidden;}}
@@ -67,7 +66,6 @@ def set_bg_and_style(main_bg_img):
                 margin-top: 20px;
             }}
 
-            /* Menyejajarkan tombol Simpan dan WhatsApp */
             [data-testid="column"] {{
                 display: flex;
                 align-items: flex-end;
@@ -97,7 +95,6 @@ def set_bg_and_style(main_bg_img):
                 border-color: #25D366;
             }}
 
-            /* Fix kolom agar tidak aneh saat diklik */
             .stTextInput input, .stSelectbox div[data-baseweb="select"], .stDateInput input, .stTextArea textarea {{
                 border: 1px solid #ccc !important;
                 box-shadow: none !important;
@@ -111,7 +108,6 @@ def set_bg_and_style(main_bg_img):
 
 set_bg_and_style("IMG_20260402_084603.jpg")
 
-# --- KONEKSI GSHEETS ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 st.markdown("<h1>🏥 CKG SEKOLAH PUSKESMAS PWT SELATAN</h1>", unsafe_allow_html=True)
@@ -147,66 +143,64 @@ data_sekolah = {
     }
 }
 
-# --- BAGIAN FORM ---
-st.subheader("Data Identitas")
-nama_lengkap = st.text_input("Nama Lengkap", placeholder="Contoh: ADZRIEL ...")
-nik = st.text_input("NIK (16 Digit)", placeholder="Masukkan 16 digit NIK")
+# --- FORM RESET LOGIC ---
+# Kita gunakan container form agar bisa reset otomatis
+with st.form("udiksar_form", clear_on_submit=True):
+    st.subheader("Data Identitas")
+    nama_lengkap = st.text_input("Nama Lengkap", placeholder="Contoh: ADZRIEL ...")
+    nik = st.text_input("NIK (16 Digit)", placeholder="Masukkan 16 digit NIK")
 
-col1, col2 = st.columns(2)
-with col1:
-    tgl_lahir = st.date_input("Tanggal Lahir", min_value=datetime(2000, 1, 1), value=None)
-    gender = st.selectbox("Jenis Kelamin", ["-- Pilih --", "Laki-laki", "Perempuan"], index=0)
-with col2:
-    wa = st.text_input("No. WhatsApp", placeholder="Contoh: 08123456789")
-    disabilitas = st.selectbox("Disabilitas", ["Tidak", "Netra", "Rungu", "Daksa", "Grahita", "Lainnya"])
+    col1, col2 = st.columns(2)
+    with col1:
+        tgl_lahir = st.date_input("Tanggal Lahir", min_value=datetime(2000, 1, 1), value=None)
+        gender = st.selectbox("Jenis Kelamin", ["-- Pilih --", "Laki-laki", "Perempuan"])
+    with col2:
+        wa = st.text_input("No. WhatsApp", placeholder="Contoh: 08123456789")
+        disabilitas = st.selectbox("Disabilitas", ["Tidak", "Netra", "Rungu", "Daksa", "Grahita", "Lainnya"])
 
-# NILAI DEFAULT (DIHAPUS DARI TAMPILAN)
-status_nikah_default = "Belum Menikah"
+    status_nikah_default = "Belum Menikah"
 
-st.subheader("Data Pendidikan")
-jenjang_input = st.selectbox("Jenjang Pendidikan", ["-- Pilih Jenjang --", "SD", "SMP", "SMA/SMK"], index=0)
+    st.subheader("Data Pendidikan")
+    jenjang_input = st.selectbox("Jenjang Pendidikan", ["-- Pilih Jenjang --", "SD", "SMP", "SMA/SMK"])
 
-angka_kelas = "-- Pilih --"
-kelurahan_sekolah = "-- Pilih --"
-sekolah_terpilih = "-- Pilih --"
+    # Placeholder untuk data pendidikan yang dinamis
+    angka_kelas = "-- Pilih --"
+    kelurahan_sekolah = "-- Pilih --"
+    sekolah_terpilih = "-- Pilih --"
 
-if jenjang_input != "-- Pilih Jenjang --":
-    if jenjang_input == "SD":
-        list_kelas = ["1", "2", "3", "4", "5", "6"]
-    elif jenjang_input == "SMP":
-        list_kelas = ["7", "8", "9"]
-    else:
-        list_kelas = ["10", "11", "12"]
+    if jenjang_input != "-- Pilih Jenjang --":
+        list_kelas = ["1", "2", "3", "4", "5", "6"] if jenjang_input == "SD" else (["7", "8", "9"] if jenjang_input == "SMP" else ["10", "11", "12"])
+        col_edu1, col_edu2 = st.columns(2)
+        with col_edu1:
+            angka_kelas = st.selectbox("Pilih Kelas", ["-- Pilih Kelas --"] + list_kelas)
+        with col_edu2:
+            list_kel = ["-- Pilih Kelurahan --"] + list(data_sekolah[jenjang_input].keys())
+            kelurahan_sekolah = st.selectbox("Kelurahan Sekolah", list_kel)
+        
+        if kelurahan_sekolah != "-- Pilih Kelurahan --":
+            sekolah_terpilih = st.selectbox("Nama Sekolah", ["-- Pilih Sekolah --"] + data_sekolah[jenjang_input][kelurahan_sekolah])
 
-    col_edu1, col_edu2 = st.columns(2)
-    with col_edu1:
-        angka_kelas = st.selectbox("Pilih Kelas", ["-- Pilih Kelas --"] + list_kelas, key=f"kelas_{jenjang_input}")
-    with col_edu2:
-        list_kel = ["-- Pilih Kelurahan --"] + list(data_sekolah[jenjang_input].keys())
-        kelurahan_sekolah = st.selectbox("Kelurahan Sekolah", list_kel, key=f"kel_{jenjang_input}")
+    st.subheader("Data Domisili")
+    alamat_domisili = st.text_input("Alamat Domisili (RT/RW)", placeholder="Contoh: RT 02 / RW 01")
+    detail_alamat = st.text_area("Detail Alamat (Nama Jalan/Blok)")
 
-    if kelurahan_sekolah != "-- Pilih Kelurahan --":
-        sekolah_terpilih = st.selectbox("Nama Sekolah", ["-- Pilih Sekolah --"] + data_sekolah[jenjang_input][kelurahan_sekolah], key=f"sch_{jenjang_input}_{kelurahan_sekolah}")
-else:
-    st.info("Silakan tentukan Jenjang Pendidikan terlebih dahulu.")
+    c1, c2, c3 = st.columns(3)
+    with c1: kec = st.text_input("Kecamatan", value="Purwokerto Selatan")
+    with c2: kab = st.text_input("Kabupaten", value="Banyumas")
+    with c3: prov = st.text_input("Propinsi", value="Jawa Tengah")
 
-st.subheader("Data Domisili")
-alamat_domisili = st.text_input("Alamat Domisili (RT/RW)", placeholder="Contoh: RT 02 / RW 01")
-detail_alamat = st.text_area("Detail Alamat (Nama Jalan/Blok)")
+    st.markdown("<br>", unsafe_allow_html=True)
 
-c1, c2, c3 = st.columns(3)
-with c1: kec = st.text_input("Kecamatan", value="Purwokerto Selatan")
-with c2: kab = st.text_input("Kabupaten", value="Banyumas")
-with c3: prov = st.text_input("Propinsi", value="Jawa Tengah")
+    col_btn1, col_btn2 = st.columns(2)
+    with col_btn1:
+        submit = st.form_submit_button("SIMPAN DATA", use_container_width=True)
+    with col_btn2:
+        # Tombol WA ditaruh di luar form submit agar tidak memicu pengiriman data
+        pass
 
-st.markdown("<br>", unsafe_allow_html=True)
-
-# SEJAJARKAN TOMBOL
-col_btn1, col_btn2 = st.columns(2)
-with col_btn1:
-    submit = st.button("SIMPAN DATA", type="primary", use_container_width=True)
-with col_btn2:
-    st.markdown(f"""<a href="https://wa.me/6289665803467" target="_blank" class="btn-wa">💬 CONTACT US (WA)</a>""", unsafe_allow_html=True)
+# Tombol WA di luar form agar tetap berfungsi sebagai link
+if not submit:
+    st.markdown(f"""<a href="https://wa.me/6289665803467" target="_blank" class="btn-wa" style="margin-top:-95px; position:relative; z-index:999;">💬 CONTACT US (WA)</a>""", unsafe_allow_html=True)
 
 # --- LOGIKA PENYIMPANAN ---
 if submit:
@@ -214,8 +208,12 @@ if submit:
     
     if any(x in invalid_values for x in [nama_lengkap, nik, wa, alamat_domisili, jenjang_input, angka_kelas, kelurahan_sekolah, sekolah_terpilih, gender]):
         st.error("❌ Mohon lengkapi semua data wajib!")
+        time.sleep(2)
+        st.rerun()
     elif len(nik) != 16 or not nik.isdigit():
         st.error("❌ NIK harus berjumlah 16 digit angka!")
+        time.sleep(2)
+        st.rerun()
     else:
         try:
             with st.spinner("Sedang memproses..."):
@@ -226,7 +224,7 @@ if submit:
                     "tanggal_lahir": str(tgl_lahir),
                     "jenis_kelamin": str(gender),
                     "no_whatsapp": f"'{wa}",
-                    "status_pernikahan": status_nikah_default, # MENGGUNAKAN NILAI DEFAULT
+                    "status_pernikahan": status_nikah_default,
                     "disabilitas": str(disabilitas),
                     "nama_sekolah": str(sekolah_terpilih),
                     "jenjang_pendidikan": f"KELAS {angka_kelas}", 
@@ -248,7 +246,7 @@ if submit:
                 st.balloons()
                 
                 time.sleep(2)
-                st.rerun()
+                st.rerun() # Ini akan merefresh halaman dan karena clear_on_submit=True, form jadi kosong bersih
 
         except Exception as e:
             st.error(f"⚠️ Terjadi Kesalahan: {e}")
