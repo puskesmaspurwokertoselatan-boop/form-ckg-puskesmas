@@ -24,12 +24,13 @@ def set_bg_local(main_bg_img):
                 background-repeat: no-repeat;
                 background-attachment: fixed;
             }}
-            [data-testid="stForm"] {{
+            .main-container {{
                 background-color: rgba(0, 0, 0, 0.7);
                 padding: 30px;
                 border-radius: 15px;
                 box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.8);
                 color: white;
+                margin-bottom: 20px;
             }}
             [data-testid="stWidgetLabel"] p {{ color: white !important; font-weight: bold; }}
             h1 {{
@@ -52,6 +53,7 @@ def set_bg_local(main_bg_img):
                 font-weight: bold;
                 height: 45px;
                 transition: 0.3s;
+                margin-top: 28px;
             }}
             .btn-wa:hover {{ background-color: #128C7E; }}
             </style>
@@ -99,56 +101,65 @@ data_sekolah = {
     }
 }
 
-with st.form("form_udiksar"):
-    st.subheader("Data Identitas")
-    nama_lengkap = st.text_input("Nama Lengkap")
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        tgl_lahir = st.date_input("Tanggal Lahir", min_value=datetime(2000, 1, 1))
-        gender = st.selectbox("Jenis Kelamin", ["Laki-laki", "Perempuan"])
-    with col2:
-        wa = st.text_input("No. WhatsApp")
-        disabilitas = st.selectbox("Disabilitas", ["Tidak", "Netra", "Rungu", "Daksa", "Grahita", "Lainnya"])
-    
-    status_nikah = st.selectbox("Status Pernikahan", ["Belum Kawin", "Kawin"])
+# Mulai Container untuk Styling
+st.markdown('<div class="main-container">', unsafe_allow_html=True)
 
-    st.subheader("Data Pendidikan")
-    jenjang_input = st.selectbox("Jenjang Pendidikan", ["SD", "SMP", "SMA/SMK"])
-    list_kelas = ["1", "2", "3", "4", "5", "6"] if jenjang_input == "SD" else ["7", "8", "9"] if jenjang_input == "SMP" else ["10", "11", "12"]
-    
-    col_edu1, col_edu2 = st.columns(2)
-    with col_edu1:
-        angka_kelas = st.selectbox("Pilih Kelas", list_kelas)
-    with col_edu2:
-        kelurahan_sekolah = st.selectbox("Kelurahan Sekolah", list(data_sekolah[jenjang_input].keys()))
-    
-    sekolah_terpilih = st.selectbox("Nama Sekolah", data_sekolah[jenjang_input][kelurahan_sekolah])
+st.subheader("Data Identitas")
+nama_lengkap = st.text_input("Nama Lengkap")
 
-    st.subheader("Data Domisili")
-    alamat_domisili = st.text_input("Alamat Domisili (RT/RW)")
-    detail_alamat = st.text_area("Detail Alamat (Nama Jalan/Blok)")
-    
-    c1, c2, c3 = st.columns(3)
-    with c1: kec = st.text_input("Kecamatan", value="Purwokerto Selatan")
-    with c2: kab = st.text_input("Kabupaten", value="Banyumas")
-    with c3: prov = st.text_input("Propinsi", value="Jawa Tengah")
+col1, col2 = st.columns(2)
+with col1:
+    tgl_lahir = st.date_input("Tanggal Lahir", min_value=datetime(2000, 1, 1))
+    gender = st.selectbox("Jenis Kelamin", ["Laki-laki", "Perempuan"])
+with col2:
+    wa = st.text_input("No. WhatsApp")
+    disabilitas = st.selectbox("Disabilitas", ["Tidak", "Netra", "Rungu", "Daksa", "Grahita", "Lainnya"])
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    col_btn1, col_btn2 = st.columns(2)
-    with col_btn1:
-        submit = st.form_submit_button("SIMPAN DATA", type="primary", use_container_width=True)
-    with col_btn2:
-        st.markdown(f"""<a href="https://wa.me/6289665803467" target="_blank" class="btn-wa">💬 CONTACT US (WA)</a>""", unsafe_allow_html=True)
+status_nikah = st.selectbox("Status Pernikahan", ["Belum Kawin", "Kawin"])
 
-    if submit:
-        if nama_lengkap and wa and alamat_domisili:
-            try:
-                # Membaca data dengan proteksi worksheet
+st.subheader("Data Pendidikan")
+# Logic dinamis di luar form agar reaktif
+jenjang_input = st.selectbox("Jenjang Pendidikan", ["SD", "SMP", "SMA/SMK"])
+
+if jenjang_input == "SD":
+    list_kelas = ["1", "2", "3", "4", "5", "6"]
+elif jenjang_input == "SMP":
+    list_kelas = ["7", "8", "9"]
+else:
+    list_kelas = ["10", "11", "12"]
+
+col_edu1, col_edu2 = st.columns(2)
+with col_edu1:
+    angka_kelas = st.selectbox("Pilih Kelas", list_kelas)
+with col_edu2:
+    list_kel = list(data_sekolah[jenjang_input].keys())
+    kelurahan_sekolah = st.selectbox("Kelurahan Sekolah", list_kel)
+
+sekolah_terpilih = st.selectbox("Nama Sekolah", data_sekolah[jenjang_input][kelurahan_sekolah])
+
+st.subheader("Data Domisili")
+alamat_domisili = st.text_input("Alamat Domisili (RT/RW)")
+detail_alamat = st.text_area("Detail Alamat (Nama Jalan/Blok)")
+
+c1, c2, c3 = st.columns(3)
+with c1: kec = st.text_input("Kecamatan", value="Purwokerto Selatan")
+with c2: kab = st.text_input("Kabupaten", value="Banyumas")
+with c3: prov = st.text_input("Propinsi", value="Jawa Tengah")
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+col_btn1, col_btn2 = st.columns(2)
+with col_btn1:
+    submit = st.button("SIMPAN DATA", type="primary", use_container_width=True)
+with col_btn2:
+    st.markdown(f"""<a href="https://wa.me/6289665803467" target="_blank" class="btn-wa">💬 CONTACT US (WA)</a>""", unsafe_allow_html=True)
+
+if submit:
+    if nama_lengkap and wa and alamat_domisili:
+        try:
+            with st.spinner("Sedang menyimpan data..."):
                 df_lama = conn.read(worksheet="MASTER_DATA", ttl=0)
                 
-                # Format data baru
                 new_data = {
                     "nama_lengkap": str(nama_lengkap).upper(),
                     "tanggal_lahir": str(tgl_lahir),
@@ -169,16 +180,14 @@ with st.form("form_udiksar"):
                     "TIMESTAMP": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 }
                 
-                # Update DataFrame
                 updated_df = pd.concat([df_lama, pd.DataFrame([new_data])], ignore_index=True)
-                
-                # Simpan kembali
                 conn.update(worksheet="MASTER_DATA", data=updated_df)
                 
                 st.success(f"✅ Data {nama_lengkap} Berhasil Tersimpan!")
                 st.balloons()
-            except Exception as e:
-                st.error(f"⚠️ Terjadi Masalah: {e}")
-                st.info("Saran: Pastikan tab di Google Sheets bernama 'MASTER_DATA' dan sudah di-share ke email bot.")
-        else:
-            st.error("Mohon isi semua data wajib!")
+        except Exception as e:
+            st.error(f"⚠️ Terjadi Masalah: {e}")
+    else:
+        st.error("Mohon isi semua data wajib (Nama, WA, dan Domisili)!")
+
+st.markdown('</div>', unsafe_allow_html=True)
