@@ -68,12 +68,6 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 st.title("🏥 CKG SEKOLAH PUSKESMAS PURWOKERTO SELATAN")
 
-# --- DEBUG CHECK ---
-if "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
-    st.sidebar.success("✅ Secrets Terhubung")
-else:
-    st.sidebar.error("❌ Secrets Belum Terpasang")
-
 # Data Sekolah
 data_sekolah = {
     "SD": {
@@ -151,15 +145,15 @@ with st.form("form_udiksar"):
     if submit:
         if nama_lengkap and wa and alamat_domisili:
             try:
-                # 1. Tarik data lama dari tab MASTER_DATA
+                # Membaca data dengan proteksi worksheet
                 df_lama = conn.read(worksheet="MASTER_DATA", ttl=0)
                 
-                # 2. Format data baru (Konversi ke string agar tidak Error 400)
+                # Format data baru
                 new_data = {
                     "nama_lengkap": str(nama_lengkap).upper(),
                     "tanggal_lahir": str(tgl_lahir),
                     "jenis_kelamin": str(gender),
-                    "no_whatsapp": f"'{wa}", # Tambah kutip agar nol depan aman
+                    "no_whatsapp": f"'{wa}",
                     "status_pernikahan": str(status_nikah),
                     "disabilitas": str(disabilitas),
                     "nama_sekolah": str(sekolah_terpilih),
@@ -175,16 +169,16 @@ with st.form("form_udiksar"):
                     "TIMESTAMP": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 }
                 
-                # 3. Gabungkan data
-                new_df = pd.DataFrame([new_data])
-                updated_df = pd.concat([df_lama, new_df], ignore_index=True)
+                # Update DataFrame
+                updated_df = pd.concat([df_lama, pd.DataFrame([new_data])], ignore_index=True)
                 
-                # 4. Push ke tab MASTER_DATA
+                # Simpan kembali
                 conn.update(worksheet="MASTER_DATA", data=updated_df)
                 
                 st.success(f"✅ Data {nama_lengkap} Berhasil Tersimpan!")
                 st.balloons()
             except Exception as e:
-                st.error(f"Gagal simpan: {e}")
+                st.error(f"⚠️ Terjadi Masalah: {e}")
+                st.info("Saran: Pastikan tab di Google Sheets bernama 'MASTER_DATA' dan sudah di-share ke email bot.")
         else:
             st.error("Mohon isi semua data wajib!")
