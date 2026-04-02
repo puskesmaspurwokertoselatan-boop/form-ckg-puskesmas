@@ -63,8 +63,8 @@ def set_bg_local(main_bg_img):
 
 set_bg_local("IMG_20260402_084603.jpg")
 
-# --- KONEKSI GSHEETS (MANDATORY SECRETS) ---
-# Di sini kita kosongkan agar dia WAJIB baca dari TOML [connections.gsheets]
+# --- KONEKSI GSHEETS ---
+# Pastikan konfigurasi [connections.gsheets] sudah ada di Secrets Streamlit Cloud
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 st.title("🏥 CKG SEKOLAH PUSKESMAS PURWOKERTO SELATAN")
@@ -122,11 +122,11 @@ with st.form("form_udiksar"):
 
     st.subheader("Data Pendidikan")
     jenjang_input = st.selectbox("Jenjang Pendidikan", ["SD", "SMP", "SMA/SMK"])
-    list_angka = ["1", "2", "3", "4", "5", "6"] if jenjang_input == "SD" else ["7", "8", "9"] if jenjang_input == "SMP" else ["10", "11", "12"]
+    list_kelas = ["1", "2", "3", "4", "5", "6"] if jenjang_input == "SD" else ["7", "8", "9"] if jenjang_input == "SMP" else ["10", "11", "12"]
     
     col_edu1, col_edu2 = st.columns(2)
     with col_edu1:
-        angka_kelas = st.selectbox("Pilih Kelas", list_angka)
+        angka_kelas = st.selectbox("Pilih Kelas", list_kelas)
     with col_edu2:
         kelurahan_sekolah = st.selectbox("Kelurahan Sekolah", list(data_sekolah[jenjang_input].keys()))
     
@@ -152,8 +152,8 @@ with st.form("form_udiksar"):
     if submit:
         if nama_lengkap and wa and alamat_domisili:
             try:
-                # Mengambil data lama
-                df_lama = conn.read(ttl=0) # ttl=0 agar data selalu fresh
+                # KRUSIAL: Menambahkan worksheet="MASTER_DATA" agar menembak ke tab yang benar
+                df_lama = conn.read(worksheet="MASTER_DATA", ttl=0)
                 
                 new_data = {
                     "nama_lengkap": nama_lengkap.upper(),
@@ -177,8 +177,8 @@ with st.form("form_udiksar"):
                 
                 updated_df = pd.concat([df_lama, pd.DataFrame([new_data])], ignore_index=True)
                 
-                # Push ke Google Sheets menggunakan Service Account di TOML
-                conn.update(data=updated_df)
+                # KRUSIAL: Menambahkan worksheet="MASTER_DATA" di sini juga
+                conn.update(worksheet="MASTER_DATA", data=updated_df)
                 
                 st.success(f"✅ Data {nama_lengkap} Berhasil Tersimpan!")
                 st.balloons()
