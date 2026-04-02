@@ -85,6 +85,20 @@ def set_bg_local(main_bg_img):
 # PANGGIL FOTO
 set_bg_local("IMG_20260402_084603.jpg")
 
+# --- KONEKSI GSHEETS ---
+conn = st.connection("gsheets", type=GSheetsConnection)
+
+st.title("🏥 CKG SEKOLAH PUSKESMAS PURWOKERTO SELATAN")
+
+# --- BARIS DEBUG (HANYA UNTUK CEK KONEKSI) ---
+# Jika ini muncul tanda merah di aplikasi, berarti Secrets di dashboard Streamlit bermasalah.
+if "connections" in st.secrets and "gsheets" in st.secrets["connections"]:
+    st.success("✅ Sistem mendeteksi konfigurasi Secrets.")
+else:
+    st.error("❌ Kunci Secrets TIDAK Terdeteksi! Periksa menu Secrets di dashboard Streamlit Cloud.")
+
+st.markdown("---")
+
 # Data Sekolah Formal
 data_sekolah = {
     "SD": {
@@ -115,13 +129,6 @@ data_sekolah = {
         "KARANG PUCUNG": ["SMK TEKNOLOGI NASIONAL PURWOKERTO"]
     }
 }
-
-# --- KONEKSI GSHEETS ---
-# Pastikan st.connection dipanggil seperti ini agar membaca Secrets
-conn = st.connection("gsheets", type=GSheetsConnection)
-
-st.title("🏥 CKG SEKOLAH PUSKESMAS PURWOKERTO SELATAN")
-st.markdown("---")
 
 with st.form("form_udiksar"):
     st.subheader("Data Identitas")
@@ -174,7 +181,7 @@ with st.form("form_udiksar"):
     if submit:
         if nama_lengkap and wa and alamat_domisili:
             try:
-                # --- PENTING: JANGAN ISI APAPUN DI DALAM KURUNG conn.read() ---
+                # Membaca data tanpa parameter URL agar menggunakan Service Account
                 df_lama = conn.read() 
                 
                 new_data = {
@@ -199,7 +206,7 @@ with st.form("form_udiksar"):
                 
                 updated_df = pd.concat([df_lama, pd.DataFrame([new_data])], ignore_index=True)
                 
-                # --- PENTING: JANGAN ISI APAPUN DI DALAM KURUNG conn.update() kecuali data ---
+                # Update data menggunakan Service Account
                 conn.update(data=updated_df)
                 
                 st.success(f"✅ Data {nama_lengkap} Berhasil Tersimpan!")
