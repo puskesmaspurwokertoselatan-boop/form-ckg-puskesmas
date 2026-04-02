@@ -75,7 +75,7 @@ def set_bg_and_style(main_bg_img):
                 justify-content: center;
                 font-weight: 400;
                 font-size: 1rem;
-                height: 38.4px; /* Tinggi standar tombol primary Streamlit */
+                height: 38.4px; 
                 width: 100%;
                 transition: 0.3s;
                 border: 1px solid rgba(255, 255, 255, 0.2);
@@ -136,6 +136,7 @@ data_sekolah = {
 # --- BAGIAN FORM ---
 st.subheader("Data Identitas")
 nama_lengkap = st.text_input("Nama Lengkap", placeholder="Contoh: ADZRIEL ...")
+nik = st.text_input("NIK (16 Digit)", placeholder="Masukkan 16 digit NIK")
 
 col1, col2 = st.columns(2)
 with col1:
@@ -196,14 +197,17 @@ with col_btn2:
 if submit:
     invalid_values = [None, "", "-- Pilih --", "-- Pilih Jenjang --", "-- Pilih Kelas --", "-- Pilih Kelurahan --", "-- Pilih Sekolah --"]
     
-    if any(x in invalid_values for x in [nama_lengkap, wa, alamat_domisili, jenjang_input, angka_kelas, kelurahan_sekolah, sekolah_terpilih, gender]):
-        st.error("❌ Mohon lengkapi semua data wajib!")
+    if any(x in invalid_values for x in [nama_lengkap, nik, wa, alamat_domisili, jenjang_input, angka_kelas, kelurahan_sekolah, sekolah_terpilih, gender]):
+        st.error("❌ Mohon lengkapi semua data wajib (termasuk NIK)!")
+    elif len(nik) != 16 or not nik.isdigit():
+        st.error("❌ NIK harus berjumlah 16 digit angka!")
     else:
         try:
             with st.spinner("Sedang memproses..."):
                 df_lama = conn.read(worksheet="MASTER_DATA", ttl=0)
                 new_data = {
                     "nama_lengkap": str(nama_lengkap).upper(),
+                    "nik": f"'{nik}", # Menggunakan tanda kutip agar tidak dianggap angka scientific di Excel
                     "tanggal_lahir": str(tgl_lahir),
                     "jenis_kelamin": str(gender),
                     "no_whatsapp": f"'{wa}",
