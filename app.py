@@ -17,6 +17,11 @@ def set_bg_and_style(main_bg_img):
         st.markdown(
             f"""
             <style>
+            /* Menghilangkan Toolbar Atas (GitHub, Menu, dll) */
+            header {{visibility: hidden;}}
+            [data-testid="stHeader"] {{background: rgba(0,0,0,0);}}
+            footer {{visibility: hidden;}}
+
             .stApp {{
                 background: url("data:image/png;base64,{bin_str}");
                 background-size: cover;
@@ -64,7 +69,6 @@ def set_bg_and_style(main_bg_img):
                 align-items: flex-end;
             }}
 
-            /* Perbaikan Tombol WA agar identik dengan tombol Streamlit */
             .btn-wa {{
                 background-color: #25D366;
                 color: white !important;
@@ -198,7 +202,7 @@ if submit:
     invalid_values = [None, "", "-- Pilih --", "-- Pilih Jenjang --", "-- Pilih Kelas --", "-- Pilih Kelurahan --", "-- Pilih Sekolah --"]
     
     if any(x in invalid_values for x in [nama_lengkap, nik, wa, alamat_domisili, jenjang_input, angka_kelas, kelurahan_sekolah, sekolah_terpilih, gender]):
-        st.error("❌ Mohon lengkapi semua data wajib (termasuk NIK)!")
+        st.error("❌ Mohon lengkapi semua data wajib!")
     elif len(nik) != 16 or not nik.isdigit():
         st.error("❌ NIK harus berjumlah 16 digit angka!")
     else:
@@ -206,8 +210,8 @@ if submit:
             with st.spinner("Sedang memproses..."):
                 df_lama = conn.read(worksheet="MASTER_DATA", ttl=0)
                 new_data = {
+                    "nik": f"'{nik}",
                     "nama_lengkap": str(nama_lengkap).upper(),
-                    "nik": f"'{nik}", # Menggunakan tanda kutip agar tidak dianggap angka scientific di Excel
                     "tanggal_lahir": str(tgl_lahir),
                     "jenis_kelamin": str(gender),
                     "no_whatsapp": f"'{wa}",
@@ -225,9 +229,18 @@ if submit:
                     "ID_TRANSAKSI": str(uuid.uuid4())[:8].upper(),
                     "TIMESTAMP": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 }
+                
                 updated_df = pd.concat([df_lama, pd.DataFrame([new_data])], ignore_index=True)
                 conn.update(worksheet="MASTER_DATA", data=updated_df)
+                
+                # Feedback Sukses
                 st.success(f"✅ Data {nama_lengkap} Berhasil Tersimpan!")
                 st.balloons()
+                
+                # Jeda sebentar agar user sempat lihat pesan sukses, lalu refresh form
+                import time
+                time.sleep(2)
+                st.rerun()
+
         except Exception as e:
             st.error(f"⚠️ Terjadi Kesalahan: {e}")
