@@ -8,7 +8,7 @@ import base64 # Diperlukan untuk membaca file lokal
 # --- CONFIG ---
 st.set_page_config(page_title="Form UDIKSAR CKG PUSKESMAS", layout="centered")
 
-# --- FUNGSI BACKGROUND LAYAR PENUH (GESER 10% KE ATAS DARI BAWAH) ---
+# --- FUNGSI BACKGROUND LAYAR PENUH ---
 def set_bg_local(main_bg_img):
     try:
         with open(main_bg_img, "rb") as f:
@@ -17,17 +17,14 @@ def set_bg_local(main_bg_img):
         st.markdown(
             f"""
             <style>
-            /* Background Utama Responsif */
             .stApp {{
                 background: url("data:image/png;base64,{bin_str}");
                 background-size: cover;
-                /* GESER KE ATAS DIKIT: Menggunakan 90% (naik 10% dari dasar foto) */
                 background-position: center 90%; 
                 background-repeat: no-repeat;
                 background-attachment: fixed;
             }}
             
-            /* Optimasi untuk Tampilan Mobile (HP) */
             @media (max-width: 768px) {{
                 .stApp {{
                     background-attachment: scroll;
@@ -38,7 +35,6 @@ def set_bg_local(main_bg_img):
                 }}
             }}
 
-            /* Latar belakang form HITAM TRANSPARAN */
             [data-testid="stForm"] {{
                 background-color: rgba(0, 0, 0, 0.7);
                 padding: 30px;
@@ -47,13 +43,11 @@ def set_bg_local(main_bg_img):
                 color: white;
             }}
             
-            /* Memastikan label input berwarna putih */
             [data-testid="stWidgetLabel"] p {{
                 color: white !important;
                 font-weight: bold;
             }}
 
-            /* Judul Utama */
             h1 {{
                 color: white !important;
                 text-shadow: 2px 2px 10px #000000;
@@ -63,7 +57,6 @@ def set_bg_local(main_bg_img):
                 border-radius: 10px;
             }}
 
-            /* Styling tombol Contact Us */
             .btn-wa {{
                 background-color: #25D366;
                 color: white !important;
@@ -89,7 +82,7 @@ def set_bg_local(main_bg_img):
     except FileNotFoundError:
         st.warning(f"⚠️ File '{main_bg_img}' tidak ditemukan.")
 
-# PANGGIL FOTO ANDA
+# PANGGIL FOTO
 set_bg_local("IMG_20260402_084603.jpg")
 
 # Data Sekolah Formal
@@ -124,11 +117,8 @@ data_sekolah = {
 }
 
 # --- KONEKSI GSHEETS ---
-# Mengambil URL dari Secrets (Direkomendasikan) atau menggunakan URL langsung sebagai fallback
+# Koneksi otomatis membaca dari .streamlit/secrets.toml atau Secrets di Cloud
 conn = st.connection("gsheets", type=GSheetsConnection)
-
-# Ganti URL_SHEET dengan link baru yang kamu berikan
-URL_SHEET = "https://docs.google.com/spreadsheets/d/1EWkjKqYHlzL854qZFjsKc58rib7YWS01ShqBA91StkI/edit?usp=sharing"
 
 st.title("🏥 CKG SEKOLAH PUSKESMAS PURWOKERTO SELATAN")
 st.markdown("---")
@@ -171,7 +161,7 @@ with st.form("form_udiksar"):
 
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # --- BARIS TOMBOL ---
+    # --- TOMBOL ---
     col_btn1, col_btn2 = st.columns(2)
     with col_btn1:
         submit = st.form_submit_button("SIMPAN DATA", type="primary", use_container_width=True)
@@ -180,14 +170,13 @@ with st.form("form_udiksar"):
         nomor_wa_pic = "6289665803467" 
         pesan = "Halo PIC CKG, saya butuh bantuan terkait pengisian form pendaftaran."
         link_wa = f"https://wa.me/{nomor_wa_pic}?text={pesan.replace(' ', '%20')}"
-        
         st.markdown(f"""<a href="{link_wa}" target="_blank" class="btn-wa">💬 CONTACT US (WA)</a>""", unsafe_allow_html=True)
 
     if submit:
         if nama_lengkap and wa and alamat_domisili:
             try:
-                # Membaca data lama dari spreadsheet
-                df_lama = conn.read(spreadsheet=URL_SHEET)
+                # MEMBACA DATA (Otomatis pakai URL di Secrets)
+                df_lama = conn.read() 
                 
                 new_data = {
                     "nama_lengkap": nama_lengkap.upper(),
@@ -209,11 +198,10 @@ with st.form("form_udiksar"):
                     "TIMESTAMP": datetime.now().strftime("%A, %d %B %Y - %H:%M:%S")
                 }
                 
-                # Menggabungkan data lama dan baru
                 updated_df = pd.concat([df_lama, pd.DataFrame([new_data])], ignore_index=True)
                 
-                # Mengupdate spreadsheet
-                conn.update(spreadsheet=URL_SHEET, data=updated_df)
+                # MENGUPDATE DATA (Otomatis pakai kredensial Service Account di Secrets)
+                conn.update(data=updated_df)
                 
                 st.success(f"✅ Data {nama_lengkap} Berhasil Tersimpan!")
                 st.balloons()
