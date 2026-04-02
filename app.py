@@ -3,7 +3,7 @@ from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 from datetime import datetime
 import uuid
-import base64 # Diperlukan untuk membaca file lokal
+import base64
 
 # --- CONFIG ---
 st.set_page_config(page_title="Form UDIKSAR CKG PUSKESMAS", layout="centered")
@@ -117,7 +117,7 @@ data_sekolah = {
 }
 
 # --- KONEKSI GSHEETS ---
-# Koneksi otomatis membaca dari .streamlit/secrets.toml atau Secrets di Cloud
+# Pastikan st.connection dipanggil seperti ini agar membaca Secrets
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 st.title("🏥 CKG SEKOLAH PUSKESMAS PURWOKERTO SELATAN")
@@ -161,7 +161,6 @@ with st.form("form_udiksar"):
 
     st.markdown("<br>", unsafe_allow_html=True)
     
-    # --- TOMBOL ---
     col_btn1, col_btn2 = st.columns(2)
     with col_btn1:
         submit = st.form_submit_button("SIMPAN DATA", type="primary", use_container_width=True)
@@ -175,7 +174,7 @@ with st.form("form_udiksar"):
     if submit:
         if nama_lengkap and wa and alamat_domisili:
             try:
-                # MEMBACA DATA (Otomatis pakai URL di Secrets)
+                # --- PENTING: JANGAN ISI APAPUN DI DALAM KURUNG conn.read() ---
                 df_lama = conn.read() 
                 
                 new_data = {
@@ -200,7 +199,7 @@ with st.form("form_udiksar"):
                 
                 updated_df = pd.concat([df_lama, pd.DataFrame([new_data])], ignore_index=True)
                 
-                # MENGUPDATE DATA (Otomatis pakai kredensial Service Account di Secrets)
+                # --- PENTING: JANGAN ISI APAPUN DI DALAM KURUNG conn.update() kecuali data ---
                 conn.update(data=updated_df)
                 
                 st.success(f"✅ Data {nama_lengkap} Berhasil Tersimpan!")
