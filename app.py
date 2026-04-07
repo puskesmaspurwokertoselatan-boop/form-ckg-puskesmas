@@ -9,12 +9,20 @@ import time
 # --- CONFIG ---
 st.set_page_config(page_title="Form UDIKSAR CKG PUSKESMAS", layout="centered")
 
+# --- INITIALIZE SESSION STATE ---
+if 'form_idx' not in st.session_state:
+    st.session_state.form_idx = 0
+
+def reset_form():
+    st.session_state.form_idx += 1
+
 # --- FUNGSI POP-UP DUPLIKAT ---
 @st.dialog("⚠️ DATA SUDAH TERDAFTAR")
 def show_duplicate_popup(nama, nik):
     st.warning(f"Halo, data dengan NIK **{nik}** atas nama **{nama}** sudah ada di sistem kami.")
-    st.info("Anda tidak perlu mengisi formulir ini lagi. Silakan tutup halaman ini atau hubungi admin jika ada kesalahan.")
-    if st.button("SAYA MENGERTI", use_container_width=True):
+    st.info("Formulir akan dikosongkan kembali agar bisa digunakan untuk pengisian data berikutnya.")
+    if st.button("SAYA MENGERTI (KOSONGKAN FORM)", use_container_width=True):
+        reset_form()
         st.rerun()
 
 # --- FUNGSI BACKGROUND & STYLING ---
@@ -112,21 +120,14 @@ def set_bg_and_style(main_bg_img):
 
 set_bg_and_style("IMG_20260402_084603.jpg")
 
-# --- INITIALIZE SESSION STATE ---
-if 'form_idx' not in st.session_state:
-    st.session_state.form_idx = 0
-
-def reset_form():
-    st.session_state.form_idx += 1
-
 # --- KONEKSI GSHEETS ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 st.markdown("<h1>🏥 CKG SEKOLAH PUSKESMAS PWT SELATAN</h1>", unsafe_allow_html=True)
 
-# Data Sekolah
+# Data Sekolah (Kunci dirubah dari SD jadi SD/MI)
 data_sekolah = {
-    "SD": {
+    "SD/MI": {
         "KARANGKLESEM": ["Sekolah Dasar Negeri 1 Karangklesem Kecamatan Purwokerto Selatan", "Sekolah Dasar Negeri 3 Karangklesem Kecamatan Purwokerto Selatan", "Sekolah Dasar Negeri 4 Karangklesem Kecamatan Purwokerto Selatan", "MIS DIPONEGORO 03 KARANGKLESEM", "SD IT HARAPAN BUNDA", "SD IT AZ-AZAHRA", "SD ISLAM BINA INSAN MANDIRI PURWOKERTO"],
         "TELUK": ["Sekolah Dasar Negeri 1 Teluk Kecamatan Purwokerto Selatan", "Sekolah Dasar Negeri 3 Teluk Kecamatan Purwokerto Selatan", "Sekolah Dasar Negeri 4 Teluk Kecamatan Purwokerto Selatan", "Sekolah Dasar Negeri 5 Teluk Kecamatan Purwokerto Selatan", "MIS MA`ARIF NU TELUK"],
         "BERKOH": ["Sekolah Dasar Negeri 1 Berkoh Kecamatan Purwokerto Selatan", "Sekolah Dasar Negeri 2 Berkoh Kecamatan Purwokerto Selatan", "Sekolah Dasar Negeri 3 Berkoh Kecamatan Purwokerto Selatan"],
@@ -171,14 +172,14 @@ with col2:
     disabilitas = st.selectbox("Disabilitas", ["Tidak", "Netra", "Rungu", "Daksa", "Grahita", "Lainnya"], key=f"dis_{f_key}")
 
 st.subheader("Data Pendidikan")
-jenjang_input = st.selectbox("Jenjang Pendidikan", ["-- Pilih Jenjang --", "SD", "SMP", "SMA/SMK"], index=0, key=f"jen_{f_key}")
+jenjang_input = st.selectbox("Jenjang Pendidikan", ["-- Pilih Jenjang --", "SD/MI", "SMP", "SMA/SMK"], index=0, key=f"jen_{f_key}")
 
 angka_kelas = "-- Pilih --"
 kelurahan_sekolah = "-- Pilih --"
 sekolah_terpilih = "-- Pilih --"
 
 if jenjang_input != "-- Pilih Jenjang --":
-    list_kelas = ["1", "2", "3", "4", "5", "6"] if jenjang_input == "SD" else (["7", "8", "9"] if jenjang_input == "SMP" else ["10", "11", "12"])
+    list_kelas = ["1", "2", "3", "4", "5", "6"] if jenjang_input == "SD/MI" else (["7", "8", "9"] if jenjang_input == "SMP" else ["10", "11", "12"])
     col_edu1, col_edu2 = st.columns(2)
     with col_edu1:
         angka_kelas = st.selectbox("Pilih Kelas", ["-- Pilih Kelas --"] + list_kelas, key=f"kls_{f_key}")
@@ -222,7 +223,6 @@ if submit:
                 nik_list = df_lama['nik'].astype(str).str.replace("'", "").tolist()
                 
                 if nik in nik_list:
-                    # Ambil nama yang sudah terdaftar untuk ditampilkan di Pop-up
                     data_exist = df_lama[df_lama['nik'].astype(str).str.contains(nik)]
                     nama_sudah_ada = data_exist['nama_lengkap'].values[0] if not data_exist.empty else "User"
                     show_duplicate_popup(nama_sudah_ada, nik)
