@@ -9,6 +9,14 @@ import time
 # --- CONFIG ---
 st.set_page_config(page_title="Form UDIKSAR CKG PUSKESMAS", layout="centered")
 
+# --- FUNGSI POP-UP DUPLIKAT ---
+@st.dialog("⚠️ DATA SUDAH TERDAFTAR")
+def show_duplicate_popup(nama, nik):
+    st.warning(f"Halo, data dengan NIK **{nik}** atas nama **{nama}** sudah ada di sistem kami.")
+    st.info("Anda tidak perlu mengisi formulir ini lagi. Silakan tutup halaman ini atau hubungi admin jika ada kesalahan.")
+    if st.button("SAYA MENGERTI", use_container_width=True):
+        st.rerun()
+
 # --- FUNGSI BACKGROUND & STYLING ---
 def set_bg_and_style(main_bg_img):
     try:
@@ -104,7 +112,7 @@ def set_bg_and_style(main_bg_img):
 
 set_bg_and_style("IMG_20260402_084603.jpg")
 
-# --- INITIALIZE SESSION STATE (Untuk Reset Form) ---
+# --- INITIALIZE SESSION STATE ---
 if 'form_idx' not in st.session_state:
     st.session_state.form_idx = 0
 
@@ -132,7 +140,7 @@ data_sekolah = {
         "TELUK": ["Sekolah Menengah Pertama Negeri 7 Purwokerto", "SMP ISLAM TERPADU HARAPAN BUNDA", "SMP MAARIF NU 03 PURWOKERTO"],
         "BERKOH": ["SMP DIPONEGORO 1 PURWOKERTO"],
         "PWT KIDUL": ["SMP TELKOM PURWOKERTO", "SMP MAARIF NU 2 PURWOKERTO", "PKBM TERANG MULIA"],
-        "PWT KULON": ["SMP MUHAMMADIYAH 1 PURWOKERTO", "SMP 3 BAHASA PUTERA HARAPAN"],
+        "PWT KULON": ["SMP MUHAMMAYDIYAH 1 PURWOKERTO", "SMP 3 BAHASA PUTERA HARAPAN"],
         "TANJUNG": ["SMP MUHAMMADIYAH 2 PURWOKERTO", "SLB C DAN C1 YAKUT PURWOKERTO"],
         "KARANG PUCUNG": ["-"]
     },
@@ -147,7 +155,7 @@ data_sekolah = {
     }
 }
 
-# --- BAGIAN FORM (Gunakan key dinamis untuk reset) ---
+# --- BAGIAN FORM ---
 f_key = st.session_state.form_idx
 
 st.subheader("Data Identitas")
@@ -192,14 +200,14 @@ with c3: prov = st.text_input("Propinsi", value="Jawa Tengah", key=f"prov_{f_key
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# --- TOMBOL SEJAJAR & BERWARNA ---
+# --- TOMBOL ---
 col_btn1, col_btn2 = st.columns(2)
 with col_btn1:
     submit = st.button("SIMPAN DATA", type="primary", use_container_width=True)
 with col_btn2:
     st.markdown(f"""<a href="https://wa.me/6289665803467" target="_blank" class="btn-wa">💬 CONTACT US (WA)</a>""", unsafe_allow_html=True)
 
-# --- LOGIKA PENYIMPANAN ---
+# --- LOGIKA PENYIMPANAN + ANTI DUPLIKAT ---
 if submit:
     invalid_values = [None, "", "-- Pilih --", "-- Pilih Jenjang --", "-- Pilih Kelas --", "-- Pilih Kelurahan --", "-- Pilih Sekolah --"]
     
@@ -209,38 +217,46 @@ if submit:
         st.error("❌ NIK harus berjumlah 16 digit angka!")
     else:
         try:
-            with st.spinner("Sedang memproses..."):
+            with st.spinner("Sedang mengecek data..."):
                 df_lama = conn.read(worksheet="MASTER_DATA", ttl=0)
-                new_data = {
-                    "nik": f"'{nik}",
-                    "nama_lengkap": str(nama_lengkap).upper(),
-                    "tanggal_lahir": str(tgl_lahir),
-                    "jenis_kelamin": str(gender),
-                    "no_whatsapp": f"'{wa}",
-                    "status_pernikahan": "Belum Menikah",
-                    "disabilitas": str(disabilitas),
-                    "nama_sekolah": str(sekolah_terpilih),
-                    "jenjang_pendidikan": f"KELAS {angka_kelas}", 
-                    "alamat_domisili": str(alamat_domisili),
-                    "detail_alamat": str(detail_alamat),
-                    "alamat_sama_sekolah": "Ya",
-                    "Propinsi": str(prov),
-                    "kabupaten": str(kab),
-                    "kecamatan": str(kec),
-                    "Kelurahan": str(kelurahan_sekolah),
-                    "ID_TRANSAKSI": str(uuid.uuid4())[:8].upper(),
-                    "TIMESTAMP": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                }
+                nik_list = df_lama['nik'].astype(str).str.replace("'", "").tolist()
                 
-                updated_df = pd.concat([df_lama, pd.DataFrame([new_data])], ignore_index=True)
-                conn.update(worksheet="MASTER_DATA", data=updated_df)
-                
-                st.success(f"✅ Data {nama_lengkap} Berhasil Tersimpan!")
-                st.balloons()
-                
-                time.sleep(2)
-                reset_form() # Reset ID Key agar form kosong kembali
-                st.rerun()
+                if nik in nik_list:
+                    # Ambil nama yang sudah terdaftar untuk ditampilkan di Pop-up
+                    data_exist = df_lama[df_lama['nik'].astype(str).str.contains(nik)]
+                    nama_sudah_ada = data_exist['nama_lengkap'].values[0] if not data_exist.empty else "User"
+                    show_duplicate_popup(nama_sudah_ada, nik)
+                else:
+                    new_data = {
+                        "nik": f"'{nik}",
+                        "nama_lengkap": str(nama_lengkap).upper(),
+                        "tanggal_lahir": str(tgl_lahir),
+                        "jenis_kelamin": str(gender),
+                        "no_whatsapp": f"'{wa}",
+                        "status_pernikahan": "Belum Menikah",
+                        "disabilitas": str(disabilitas),
+                        "nama_sekolah": str(sekolah_terpilih),
+                        "jenjang_pendidikan": f"KELAS {angka_kelas}", 
+                        "alamat_domisili": str(alamat_domisili),
+                        "detail_alamat": str(detail_alamat),
+                        "alamat_sama_sekolah": "Ya",
+                        "Propinsi": str(prov),
+                        "kabupaten": str(kab),
+                        "kecamatan": str(kec),
+                        "Kelurahan": str(kelurahan_sekolah),
+                        "ID_TRANSAKSI": str(uuid.uuid4())[:8].upper(),
+                        "TIMESTAMP": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    }
+                    
+                    updated_df = pd.concat([df_lama, pd.DataFrame([new_data])], ignore_index=True)
+                    conn.update(worksheet="MASTER_DATA", data=updated_df)
+                    
+                    st.success(f"✅ Data {nama_lengkap} Berhasil Tersimpan!")
+                    st.balloons()
+                    
+                    time.sleep(2)
+                    reset_form()
+                    st.rerun()
 
         except Exception as e:
             st.error(f"⚠️ Terjadi Kesalahan: {e}")
