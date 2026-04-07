@@ -25,35 +25,77 @@ def show_duplicate_popup(nama, nik):
         reset_form()
         st.rerun()
 
-# --- FUNGSI POP-UP PEMERIKSAAN LENGKAP ---
+# --- FUNGSI POP-UP SUKSES REGISTRASI ---
+@st.dialog("✅ PENDAFTARAN BERHASIL!")
+def show_success_pendaftaran(nama):
+    st.success(f"Terima kasih, data **{nama}** telah berhasil tersimpan di sistem kami.")
+    st.info("Mohon lengkapi data Anda dengan benar demi kelancaran proses skrining mandiri oleh Kemenkes melalui pesan WhatsApp.")
+    if st.button("TUTUP & KEMBALI", use_container_width=True):
+        reset_form()
+        st.rerun()
+
+# --- FUNGSI POP-UP PEMERIKSAAN ---
 @st.dialog("📋 FORM PEMERIKSAAN KESEHATAN LENGKAP", width="large")
 def form_pemeriksaan_popup():
-    st.info("Pastikan Nama & NIK sesuai dengan data registrasi agar sinkron.")
+    st.info("Silakan pilih metode pencarian data siswa.")
     
-    # --- SECTION 1: IDENTITAS DASAR ---
-    with st.expander("👤 Identitas Siswa", expanded=True):
+    try:
+        # Pengecekan data untuk input menggunakan ttl=0 agar selalu dapat data terbaru
+        df_ref = conn.read(worksheet="MASTER_DATA", ttl=0)
+        df_ref['nik_clean'] = df_ref['nik'].astype(str).str.replace("'", "")
+    except:
+        st.error("Gagal terhubung ke database Master.")
+        return
+
+    v_nik, v_nama, v_sekolah, v_kelas = "", "", "", "1"
+    metode_cari = st.selectbox("Cari Identitas Berdasarkan:", ["-- Pilih --", "NIK", "Nama Lengkap"])
+
+    if metode_cari == "NIK":
+        s_nik = st.text_input("Masukkan NIK (16 Digit)").strip()
+        if s_nik and len(s_nik) == 16:
+            m = df_ref[df_ref['nik_clean'] == s_nik]
+            if not m.empty:
+                v_nik, v_nama, v_sekolah = s_nik, m['nama_lengkap'].values[0], m['nama_sekolah'].values[0]
+                v_kelas = str(m['jenjang_pendidikan'].values[0]).replace("KELAS ", "")
+                st.success(f"✅ Data Ditemukan: {v_nama}")
+            else: st.warning("NIK tidak ditemukan di Master Data.")
+
+    elif metode_cari == "Nama Lengkap":
+        s_nama = st.text_input("Ketik Nama Siswa...").upper()
+        if s_nama:
+            hits = df_ref[df_ref['nama_lengkap'].str.contains(s_nama, na=False, case=False)]
+            if not hits.empty:
+                sel_nama = st.selectbox("Pilih Nama yang Sesuai", ["-- Pilih --"] + hits['nama_lengkap'].tolist())
+                if sel_nama != "-- Pilih --":
+                    r = hits[hits['nama_lengkap'] == sel_nama].iloc[0]
+                    v_nik, v_nama, v_sekolah = r['nik_clean'], r['nama_lengkap'], r['nama_sekolah']
+                    v_kelas = str(r['jenjang_pendidikan']).replace("KELAS ", "")
+                    st.success("✅ Data Berhasil Dimuat!")
+            else: st.warning("Nama tidak ditemukan.")
+
+    st.markdown("---")
+    with st.expander("👤 Konfirmasi Identitas Siswa", expanded=True):
         c1, c2 = st.columns(2)
         with c1:
-            p_nama = st.text_input("Nama Lengkap Siswa").upper()
-            p_nik = st.text_input("NIK Siswa (16 Digit)")
+            p_nik = st.text_input("NIK (Final)", value=v_nik)
+            p_nama = st.text_input("Nama Lengkap (Final)", value=v_nama).upper()
         with c2:
-            p_sekolah = st.text_input("Nama Sekolah")
-            p_kelas = st.selectbox("Kelas", [str(i) for i in range(1, 13)])
+            p_sekolah = st.text_input("Sekolah (Final)", value=v_sekolah)
+            p_kelas = st.selectbox("Kelas (Final)", [str(i) for i in range(1, 13)], 
+                                  index=[str(i) for i in range(1, 13)].index(v_kelas) if v_kelas in [str(i) for i in range(1,13)] else 0)
 
-    # --- SECTION 2: ANTROPOMETRI & TENSI ---
     with st.expander("⚖️ Gizi & Tekanan Darah", expanded=False):
         c3, c4, c5 = st.columns(3)
         with c3:
             gizi_bb = st.number_input("Berat Badan (kg)", min_value=0.0, step=0.1)
-            sistol = st.number_input("Tekanan Darah: Sistol", min_value=0)
+            sistol = st.number_input("Sistol", min_value=0)
         with c4:
             gizi_tb = st.number_input("Tinggi Badan (cm)", min_value=0.0, step=0.1)
-            diastol = st.number_input("Tekanan Darah: Diastol", min_value=0)
+            diastol = st.number_input("Diastol", min_value=0)
         with c5:
-            kat_imt = st.selectbox("Kategori IMT", ["Sangat Kurus", "Kurus", "Normal", "Gemuk", "Obesitas"])
+            kat_imt = st.selectbox("Kategori IMT", ["Normal", "Sangat Kurus", "Kurus", "Gemuk", "Obesitas"])
 
-    # --- SECTION 3: KULIT & TELINGA ---
-    with st.expander("👂 Pemeriksaan Fisik (Kulit & Telinga)", expanded=False):
+    with st.expander("👂 Kulit & Telinga", expanded=False):
         c6, c7 = st.columns(2)
         with c6:
             rambusia = st.selectbox("Papul Ulkus (Frambusia)", ["Tidak Ada", "Ada"])
@@ -63,7 +105,6 @@ def form_pemeriksaan_popup():
             telinga_ka = st.selectbox("Telinga Kanan", ["Normal", "Serumen", "Infeksi", "Gangguan Dengar"])
             telinga_ki = st.selectbox("Telinga Kiri", ["Normal", "Serumen", "Infeksi", "Gangguan Dengar"])
 
-    # --- SECTION 4: MATA & GIGI ---
     with st.expander("👁️ Mata & 🦷 Gigi", expanded=False):
         c8, c9 = st.columns(2)
         with c8:
@@ -72,38 +113,30 @@ def form_pemeriksaan_popup():
             kaca_mata = st.selectbox("Pakai Kacamata?", ["Tidak", "Ya"])
         with c9:
             gigi_anak = st.selectbox("Kondisi Gigi/Mulut", ["Sehat", "Karies/Berlubang", "Gusi Berdarah", "Lainnya"])
-            kebugaran = st.selectbox("Tingkat Kebugaran", ["Baik Sekali", "Baik", "Cukup", "Kurang", "Kurang Sekali"])
+            kebugaran = st.selectbox("Tingkat Kebugaran", ["Baik", "Baik Sekali", "Cukup", "Kurang", "Kurang Sekali"])
 
-    # --- SECTION 5: SKRINING DM (DIABETES) ---
-    with st.expander("🩸 Riwayat Kesehatan & GDS", expanded=False):
+    with st.expander("🩸 Riwayat & GDS", expanded=False):
         c10, c11 = st.columns(2)
         with c10:
             riwayat_dm = st.selectbox("Pernah dinyatakan DM?", ["Tidak", "Ya"])
-            kapan_dm = st.text_input("Jika Ya, sudah berapa tahun?", value="-")
+            kapan_dm = st.text_input("Jika Ya (Tahun)", value="-")
         with c11:
-            gds_1 = st.number_input("Hasil GDS 1", min_value=0)
-            gds_2 = st.number_input("Hasil GDS 2 (Opsional)", min_value=0)
+            gds_1 = st.number_input("GDS 1", min_value=0)
+            gds_2 = st.number_input("GDS 2 (Opsional)", min_value=0)
             hasil_hb = st.number_input("Hasil HB", min_value=0.0, step=0.1)
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    
-    # --- LOGIKA PENYIMPANAN PEMERIKSAAN ---
-    if st.button("SIMPAN HASIL PEMERIKSAAN", type="primary", use_container_width=True):
+    if st.button("SIMPAN HASIL PEMERIKSAAN", type="primary", key="btn_save_pemeriksaan"):
         if not p_nama or not p_nik:
-            st.error("Nama dan NIK wajib diisi!")
+            st.error("Mohon cari data siswa terlebih dahulu!")
         else:
-            # Tentukan Sheet Berdasarkan Kelas (NAMA KAPITAL)
             kls_int = int(p_kelas)
             if kls_int <= 6: target_sheet = "PEMERIKSAAN_SD/MI"
             elif kls_int <= 9: target_sheet = "PEMERIKSAAN_SMP"
             else: target_sheet = "PEMERIKSAAN_SMA/SMK"
             
-            master_p_sheet = "MASTER_DATA_PEMERIKSAAN"
-            
-            # Map data ke kolom Spreadsheet (Urutan sesuai request)
             new_entry = {
                 "Nama": p_nama, "NIK": f"'{p_nik}", "Nama Sekolah": p_sekolah, "Kelas": f"KELAS {p_kelas}",
-                "Status Daftar": "", "Tiket": "", "Hadir": "", # Kosong sesuai request
+                "Status Daftar": "", "Tiket": "", "Hadir": "",
                 "gizi_bb": gizi_bb, "gizi_tb": gizi_tb, "kategori_imt": kat_imt,
                 "sistol": sistol, "diastol": diastol, 
                 "ada_papul_ulkus_frambusia": rambusia, "bercak_putih_kusta": kusta, "Koreng_skabies": koreng,
@@ -114,19 +147,18 @@ def form_pemeriksaan_popup():
                 "Hasil_GDS_1": gds_1, "Hasil_GDS_2": gds_2, "hasil_HB": hasil_hb,
                 "TIMESTAMP": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             }
-            
             try:
-                with st.spinner("Menyimpan hasil pemeriksaan..."):
-                    for s in [master_p_sheet, target_sheet]:
+                with st.spinner("Menyimpan..."):
+                    for s in ["MASTER_DATA_PEMERIKSAAN", target_sheet]:
                         df_target = conn.read(worksheet=s, ttl=0)
                         df_updated = pd.concat([df_target, pd.DataFrame([new_entry])], ignore_index=True)
                         conn.update(worksheet=s, data=df_updated)
-                st.success(f"✅ Data Pemeriksaan {p_nama} Berhasil Disimpan!")
+                st.success("✅ Data Berhasil Disimpan!")
                 st.balloons()
                 time.sleep(2)
                 st.rerun()
             except Exception as e:
-                st.error(f"Gagal Simpan! Pastikan Nama Sheet Kapital sudah benar. Error: {e}")
+                st.error(f"Error: {e}")
 
 # --- FUNGSI BACKGROUND & STYLING ---
 def set_bg_and_style(main_bg_img):
@@ -134,8 +166,7 @@ def set_bg_and_style(main_bg_img):
         with open(main_bg_img, "rb") as f:
             data = f.read()
         bin_str = base64.b64encode(data).decode()
-        st.markdown(
-            f"""
+        st.markdown(f"""
             <style>
             header {{visibility: hidden;}}
             [data-testid="stHeader"] {{background: rgba(0,0,0,0);}}
@@ -209,7 +240,6 @@ def set_bg_and_style(main_bg_img):
                 border-radius: 10px;
             }}
 
-            /* Tombol Khusus Input Pemeriksaan (Cyan/Biru) */
             .stButton > button[kind="secondary"] {{
                 background-color: #00ADB5 !important;
                 color: white !important;
@@ -238,36 +268,26 @@ def set_bg_and_style(main_bg_img):
                 }}
             }}
             </style>
-            """,
-            unsafe_allow_html=True
-        )
-    except:
-        pass
+            """, unsafe_allow_html=True)
+    except: pass
 
 set_bg_and_style("IMG_20260402_084603.jpg")
-
-# --- KONEKSI GSHEETS ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# --- HEADER ---
+# --- HEADER & METRICS (Irit Kuota: ttl=600) ---
 st.markdown("<h1>🏥 CKG SEKOLAH PUSKESMAS PWT SELATAN</h1>", unsafe_allow_html=True)
-
-# --- RINGKASAN DATA (ATAS) ---
 try:
-    df_global = conn.read(worksheet="MASTER_DATA", ttl=0)
-    c_sd = len(df_global[df_global['jenjang_pendidikan'].str.contains('KELAS 1|KELAS 2|KELAS 3|KELAS 4|KELAS 5|KELAS 6', na=False)])
-    c_smp = len(df_global[df_global['jenjang_pendidikan'].str.contains('KELAS 7|KELAS 8|KELAS 9', na=False)])
-    c_sma = len(df_global[df_global['jenjang_pendidikan'].str.contains('KELAS 10|KELAS 11|KELAS 12', na=False)])
-
+    df_global = conn.read(worksheet="MASTER_DATA", ttl=600)
+    c_sd = len(df_global[df_global['jenjang_pendidikan'].str.contains('1|2|3|4|5|6', na=False)])
+    c_smp = len(df_global[df_global['jenjang_pendidikan'].str.contains('7|8|9', na=False)])
+    c_sma = len(df_global[df_global['jenjang_pendidikan'].str.contains('10|11|12', na=False)])
     m1, m2, m3 = st.columns(3)
-    with m1: st.metric(label="Total SD/MI\n(Terinput)", value=f"{c_sd}")
-    with m2: st.metric(label="Total SMP\n(Terinput)", value=f"{c_smp}")
-    with m3: st.metric(label="Total SMA/SMK\n(Terinput)", value=f"{c_sma}")
-    st.markdown("<br>", unsafe_allow_html=True)
-except:
-    st.info("📊 Menghubungkan ke database...")
+    with m1: st.metric("Total SD/MI", f"{c_sd}")
+    with m2: st.metric("Total SMP", f"{c_smp}")
+    with m3: st.metric("Total SMA/SMK", f"{c_sma}")
+except: pass
 
-# --- DATABASE SEKOLAH (OMITTED FOR BREVITY - SAMA SEPERTI KODE ABANG) ---
+# --- DATABASE SEKOLAH ---
 data_sekolah = {
     "SD/MI": {
         "KARANGKLESEM": ["Sekolah Dasar Negeri 1 Karangklesem Kecamatan Purwokerto Selatan", "Sekolah Dasar Negeri 3 Karangklesem Kecamatan Purwokerto Selatan", "Sekolah Dasar Negeri 4 Karangklesem Kecamatan Purwokerto Selatan", "MIS DIPONEGORO 03 KARANGKLESEM", "SD IT HARAPAN BUNDA", "SD IT AZ-AZAHRA", "SD ISLAM BINA INSAN MANDIRI PURWOKERTO"],
@@ -298,7 +318,7 @@ data_sekolah = {
     }
 }
 
-# --- BAGIAN FORM ---
+# --- FORM REGISTRASI ---
 f_key = st.session_state.form_idx
 st.subheader("Data Identitas")
 nama_lengkap = st.text_input("Nama Lengkap", placeholder="Contoh: ADZRIEL ...", key=f"nama_{f_key}")
@@ -315,10 +335,7 @@ with col2:
 st.subheader("Data Pendidikan")
 jenjang_input = st.selectbox("Jenjang Pendidikan", ["-- Pilih Jenjang --", "SD/MI", "SMP", "SMA/SMK"], index=0, key=f"jen_{f_key}")
 
-angka_kelas = "-- Pilih --"
-kelurahan_sekolah = "-- Pilih --"
-sekolah_terpilih = "-- Pilih --"
-
+angka_kelas, kelurahan_sekolah, sekolah_terpilih = "-- Pilih --", "-- Pilih --", "-- Pilih --"
 if jenjang_input != "-- Pilih Jenjang --":
     list_kelas = ["1", "2", "3", "4", "5", "6"] if jenjang_input == "SD/MI" else (["7", "8", "9"] if jenjang_input == "SMP" else ["10", "11", "12"])
     col_edu1, col_edu2 = st.columns(2)
@@ -340,18 +357,16 @@ with c2: kab = st.text_input("Kabupaten", value="Banyumas", key=f"kab_{f_key}")
 with c3: prov = st.text_input("Propinsi", value="Jawa Tengah", key=f"prov_{f_key}")
 
 st.markdown("<br>", unsafe_allow_html=True)
-
-# --- TOMBOL MENU UTAMA ---
 col_btn1, col_btn2, col_btn3 = st.columns(3)
 with col_btn1:
     submit = st.button("SIMPAN DATA", type="primary", use_container_width=True)
 with col_btn2:
-    if st.button("📝 INPUT PEMERIKSAAN", use_container_width=True):
+    if st.button("📝 INPUT PEMERIKSAAN", type="secondary", use_container_width=True):
         form_pemeriksaan_popup()
 with col_btn3:
     st.markdown(f"""<a href="https://wa.me/6289665803467" target="_blank" class="btn-wa">💬 CONTACT WA</a>""", unsafe_allow_html=True)
 
-# --- LOGIKA PENYIMPANAN REGISTRASI ---
+# --- LOGIKA SIMPAN REGISTRASI (Real-time: ttl=0) ---
 if submit:
     invalid_values = [None, "", "-- Pilih --", "-- Pilih Jenjang --", "-- Pilih Kelas --", "-- Pilih Kelurahan --", "-- Pilih Sekolah --"]
     if any(x in invalid_values for x in [nama_lengkap, nik, wa, alamat_domisili, jenjang_input, angka_kelas, kelurahan_sekolah, sekolah_terpilih, gender]):
@@ -361,6 +376,7 @@ if submit:
     else:
         try:
             with st.spinner("Sedang mengecek data..."):
+                # Bagian ini tetap ttl=0 agar pengecekan NIK tidak ter-cache
                 df_lama = conn.read(worksheet="MASTER_DATA", ttl=0)
                 nik_list = df_lama['nik'].astype(str).str.replace("'", "").tolist()
                 if nik in nik_list:
@@ -369,66 +385,49 @@ if submit:
                     show_duplicate_popup(nama_sudah_ada, nik)
                 else:
                     new_data = {
-                        "nik": f"'{nik}",
-                        "nama_lengkap": str(nama_lengkap).upper(),
-                        "tanggal_lahir": str(tgl_lahir),
-                        "jenis_kelamin": str(gender),
-                        "no_whatsapp": f"'{wa}",
-                        "status_pernikahan": "Belum Menikah",
-                        "disabilitas": str(disabilitas),
-                        "nama_sekolah": str(sekolah_terpilih),
-                        "jenjang_pendidikan": f"KELAS {angka_kelas}", 
-                        "alamat_domisili": str(alamat_domisili),
-                        "detail_alamat": str(detail_alamat),
-                        "alamat_sama_sekolah": "Ya",
-                        "Propinsi": str(prov),
-                        "kabupaten": str(kab),
-                        "kecamatan": str(kec),
-                        "Kelurahan": str(kelurahan_sekolah),
-                        "ID_TRANSAKSI": str(uuid.uuid4())[:8].upper(),
+                        "nik": f"'{nik}", "nama_lengkap": str(nama_lengkap).upper(),
+                        "tanggal_lahir": str(tgl_lahir), "jenis_kelamin": str(gender),
+                        "no_whatsapp": f"'{wa}", "status_pernikahan": "Belum Menikah", "disabilitas": str(disabilitas),
+                        "nama_sekolah": str(sekolah_terpilih), "jenjang_pendidikan": f"KELAS {angka_kelas}", 
+                        "alamat_domisili": str(alamat_domisili), "detail_alamat": str(detail_alamat),
+                        "Propinsi": str(prov), "kabupaten": str(kab), "kecamatan": str(kec),
+                        "Kelurahan": str(kelurahan_sekolah), "ID_TRANSAKSI": str(uuid.uuid4())[:8].upper(),
                         "TIMESTAMP": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     }
                     updated_df = pd.concat([df_lama, pd.DataFrame([new_data])], ignore_index=True)
                     conn.update(worksheet="MASTER_DATA", data=updated_df)
-                    st.success(f"✅ Data {nama_lengkap} Berhasil Tersimpan!")
                     st.balloons()
-                    time.sleep(2)
-                    reset_form()
-                    st.rerun()
+                    show_success_pendaftaran(nama_lengkap)
         except Exception as e:
             st.error(f"⚠️ Terjadi Kesalahan: {e}")
 
-# --- BAGIAN FILTER CEK SISWA (BAWAH) ---
+# --- FILTER BAWAH (Irit Kuota: ttl=600) ---
 st.markdown("<br><hr>", unsafe_allow_html=True)
 st.subheader("🔍 CEK DATA SISWA TERDAFTAR")
 try:
-    df_look = conn.read(worksheet="MASTER_DATA", ttl=0)
-    c1, c2, c3 = st.columns(3)
-    with c1: v_jen = st.selectbox("Pilih Jenjang", ["-- Pilih --", "SD/MI", "SMP", "SMA/SMK"], key="v_jen")
-    with c2:
+    df_look = conn.read(worksheet="MASTER_DATA", ttl=600)
+    c_f1, c_f2, c_f3 = st.columns(3)
+    with c_f1: v_jen = st.selectbox("Pilih Jenjang", ["-- Pilih --", "SD/MI", "SMP", "SMA/SMK"], key="v_jen")
+    with c_f2:
         if v_jen != "-- Pilih --":
             sekolah_list = []
             for kel in data_sekolah[v_jen]: sekolah_list.extend(data_sekolah[v_jen][kel])
             v_sch = st.selectbox("Pilih Sekolah", ["-- Pilih --"] + sorted(list(set(sekolah_list))), key="v_sch")
         else:
-            st.selectbox("Pilih Sekolah", ["-- Pilih Jenjang Dulu --"], disabled=True)
-            v_sch = "-- Pilih --"
-    with c3:
+            v_sch = st.selectbox("Pilih Sekolah", ["-- Pilih Jenjang Dulu --"], disabled=True)
+    with c_f3:
         if v_jen != "-- Pilih --":
             kls_list = ["1", "2", "3", "4", "5", "6"] if v_jen == "SD/MI" else (["7", "8", "9"] if v_jen == "SMP" else ["10", "11", "12"])
             v_kls = st.selectbox("Pilih Kelas", ["-- Pilih --"] + kls_list, key="v_kls")
         else:
-            st.selectbox("Pilih Kelas", ["-- Pilih Jenjang Dulu --"], disabled=True)
-            v_kls = "-- Pilih --"
+            v_kls = st.selectbox("Pilih Kelas", ["-- Pilih Jenjang Dulu --"], disabled=True)
 
     if v_jen != "-- Pilih --" and v_sch != "-- Pilih --" and v_kls != "-- Pilih --":
         mask = (df_look['nama_sekolah'] == v_sch) & (df_look['jenjang_pendidikan'] == f"KELAS {v_kls}")
         hasil = df_look[mask][['nama_lengkap', 'jenjang_pendidikan']].reset_index(drop=True)
         hasil.columns = ['NAMA SISWA', 'KELAS']
         if not hasil.empty:
-            st.success(f"Ditemukan {len(hasil)} siswa terdaftar.")
             st.dataframe(hasil, use_container_width=True, hide_index=True)
         else:
-            st.warning("Belum ada data siswa untuk filter ini.")
-except:
-    st.write("Belum ada data pendaftar.")
+            st.warning("Data belum ada.")
+except: pass
