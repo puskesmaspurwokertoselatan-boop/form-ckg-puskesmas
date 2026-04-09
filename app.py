@@ -34,13 +34,27 @@ def show_success_pendaftaran(nama):
         reset_form()
         st.rerun()
 
+# --- FUNGSI POP-UP WARNING PEMERIKSAAN (UPDATED: OPSI 2) ---
+@st.dialog("⚠️ PERINGATAN PEMERIKSAAN")
+def warning_pemeriksaan_popup():
+    st.warning("### Mohon Perhatian!")
+    st.write("""
+    1. Pastikan anda sudah melakukan pemeriksaan atau petugas pemeriksaan dari puskesmas mendampingi.
+    2. Pastikan pemeriksaan oleh petugas sudah selesai sebelum mengisi data secara mandiri.
+    3. Petugas kesehatan di lapangan juga berwenang membantu proses input data siswa.
+    """)
+    st.info("Terimakasih sudah menggunakan aplikasi pendataan kami.")
+    st.markdown("---")
+    if st.button("LANJUTKAN KE FORM", type="primary", use_container_width=True):
+        st.session_state.show_pemeriksaan_form = True
+        st.rerun()
+
 # --- FUNGSI POP-UP PEMERIKSAAN ---
 @st.dialog("📋 FORM PEMERIKSAAN KESEHATAN LENGKAP", width="large")
 def form_pemeriksaan_popup():
     st.info("Silakan pilih metode pencarian data siswa.")
     
     try:
-        # Pengecekan data untuk input menggunakan ttl=0 agar selalu dapat data terbaru
         df_ref = conn.read(worksheet="MASTER_DATA", ttl=0)
         df_ref['nik_clean'] = df_ref['nik'].astype(str).str.replace("'", "")
     except:
@@ -274,7 +288,15 @@ def set_bg_and_style(main_bg_img):
 set_bg_and_style("IMG_20260402_084603.jpg")
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# --- HEADER & METRICS (Irit Kuota: ttl=600) ---
+# --- LOGIKA UNTUK URUTAN POP-UP ---
+if 'show_pemeriksaan_form' not in st.session_state:
+    st.session_state.show_pemeriksaan_form = False
+
+if st.session_state.show_pemeriksaan_form:
+    st.session_state.show_pemeriksaan_form = False # Reset agar tidak loop
+    form_pemeriksaan_popup()
+
+# --- HEADER & METRICS ---
 st.markdown("<h1>🏥 CKG SEKOLAH PUSKESMAS PWT SELATAN</h1>", unsafe_allow_html=True)
 try:
     df_global = conn.read(worksheet="MASTER_DATA", ttl=600)
@@ -362,7 +384,7 @@ with col_btn1:
     submit = st.button("SIMPAN DATA", type="primary", use_container_width=True)
 with col_btn2:
     if st.button("📝 INPUT PEMERIKSAAN", type="secondary", use_container_width=True):
-        form_pemeriksaan_popup()
+        warning_pemeriksaan_popup() # Panggil Warning dulu
 with col_btn3:
     st.markdown(f"""<a href="https://wa.me/6289665803467" target="_blank" class="btn-wa">💬 CONTACT WA</a>""", unsafe_allow_html=True)
 
@@ -376,7 +398,6 @@ if submit:
     else:
         try:
             with st.spinner("Sedang mengecek data..."):
-                # Bagian ini tetap ttl=0 agar pengecekan NIK tidak ter-cache
                 df_lama = conn.read(worksheet="MASTER_DATA", ttl=0)
                 nik_list = df_lama['nik'].astype(str).str.replace("'", "").tolist()
                 if nik in nik_list:
