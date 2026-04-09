@@ -34,14 +34,12 @@ def show_success_pendaftaran(nama):
         reset_form()
         st.rerun()
 
-# --- FUNGSI POP-UP WARNING PEMERIKSAAN (UPDATED: OPSI 2) ---
+# --- FUNGSI POP-UP WARNING PEMERIKSAAN (UPDATED) ---
 @st.dialog("⚠️ PERINGATAN PEMERIKSAAN")
 def warning_pemeriksaan_popup():
-    st.warning("### Mohon Perhatian!")
+    st.warning("### Mohon Perhatian.!!")
     st.write("""
-    1. Pastikan anda sudah melakukan pemeriksaan atau petugas pemeriksaan dari puskesmas mendampingi.
-    2. Pastikan pemeriksaan oleh petugas sudah selesai sebelum mengisi data secara mandiri.
-    3. Petugas kesehatan di lapangan juga berwenang membantu proses input data siswa.
+    **Input pemeriksaan hanya dilakukan oleh petugas puskesmas saja.**
     """)
     st.info("Terimakasih sudah menggunakan aplikasi pendataan kami.")
     st.markdown("---")
