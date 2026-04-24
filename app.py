@@ -16,7 +16,8 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 @st.cache_data(ttl=300)
 def get_cached_data(worksheet_name):
     try:
-        return conn.read(worksheet=worksheet_name, ttl=0)
+        df = conn.read(worksheet=worksheet_name, ttl=0)
+        return df.dropna(how='all')
     except:
         return pd.DataFrame()
 
@@ -88,7 +89,7 @@ def form_pemeriksaan_popup():
     st.markdown("---")
     
     if v_nik:
-        with st.form("form_aksi_pemeriksaan"):
+        with st.container():
             st.markdown("### 👤 Data Siswa", unsafe_allow_html=True)
             c1, c2 = st.columns(2)
             c1.text_input("NIK", value=v_nik, disabled=True)
@@ -99,8 +100,27 @@ def form_pemeriksaan_popup():
             
             st.markdown("### 🩺 Hasil Pemeriksaan", unsafe_allow_html=True)
             gizi_c1, gizi_c2 = st.columns(2)
-            gizi_bb = gizi_c1.number_input("Berat Badan (gizi_bb) Kg", min_value=0.0, format="%.1f")
-            gizi_tb = gizi_c2.number_input("Tinggi Badan (gizi_tb) cm", min_value=0.0, format="%.1f")
+            gizi_bb = gizi_c1.number_input("Berat Badan (Kg)", min_value=0.0, format="%.1f")
+            gizi_tb = gizi_c2.number_input("Tinggi Badan (cm)", min_value=0.0, format="%.1f")
+            
+            # Live IMT Display
+            if gizi_bb > 0 and gizi_tb > 0:
+                live_tb_m = gizi_tb / 100.0
+                live_imt = gizi_bb / (live_tb_m * live_tb_m)
+                live_cat = "Obesitas"
+                if live_imt < 18.5: live_cat = "Kurus"
+                elif live_imt <= 25.0: live_cat = "Normal"
+                elif live_imt <= 27.0: live_cat = "Gemuk"
+                
+                if live_cat == "Normal":
+                    st.success(f"📊 **IMT:** {live_imt:.1f} (Kategori: **{live_cat}**)")
+                elif live_cat == "Kurus":
+                    st.warning(f"📊 **IMT:** {live_imt:.1f} (Kategori: **{live_cat}**)")
+                else:
+                    st.error(f"📊 **IMT:** {live_imt:.1f} (Kategori: **{live_cat}**)")
+            else:
+                st.info("💡 Masukkan Berat dan Tinggi Badan untuk melihat IMT otomatis.")
+            
             
             ukur_c1, ukur_c2 = st.columns(2)
             lk = ukur_c1.number_input("Lingkar Kepala (lk) cm", min_value=0.0, format="%.1f")
@@ -135,10 +155,28 @@ def form_pemeriksaan_popup():
             hb = hasil_c2.number_input("Hasil HB", min_value=0.0, format="%.1f")
             hasil = st.text_input("Hasil / Catatan Lainnya")
             
-            if st.form_submit_button("SIMPAN HASIL PEMERIKSAAN", type="primary", use_container_width=True):
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.button("SIMPAN HASIL PEMERIKSAAN", type="primary", use_container_width=True):
                 with st.spinner("Menyimpan ke database pemeriksaan..."):
                     try:
                         df_pem = conn.read(worksheet="MASTER_DATA_PEMERIKSAAN", ttl=0)
+                        df_pem = df_pem.dropna(subset=['NIK'])
+                        df_pem = df_pem[~df_pem['NIK'].astype(str).str.strip().isin(['', 'nan', 'None'])]
+                        
+                        # Kalkulasi IMT otomatis
+                        imt_val = 0.0
+                        kategori_val = ""
+                        if gizi_tb > 0 and gizi_bb > 0:
+                            tb_m = gizi_tb / 100.0
+                            imt_val = gizi_bb / (tb_m * tb_m)
+                            if imt_val < 18.5:
+                                kategori_val = "Kurus"
+                            elif imt_val <= 25.0:
+                                kategori_val = "Normal"
+                            elif imt_val <= 27.0:
+                                kategori_val = "Gemuk"
+                            else:
+                                kategori_val = "Obesitas"
                         
                         # Data yang akan diinput
                         new_data = {
@@ -151,6 +189,8 @@ def form_pemeriksaan_popup():
                             "Hadir": "Hadir",
                             "gizi_bb": gizi_bb,
                             "gizi_tb": gizi_tb,
+                            "kategori_imt": round(imt_val, 2) if imt_val > 0 else "",
+                            "kategori": kategori_val,
                             "lk": lk,
                             "lp": lp,
                             "sistol": sistol,
@@ -356,6 +396,8 @@ if btn_c1.button("💾 SIMPAN DATA PENDAFTARAN", type="primary", use_container_w
         try:
             with st.spinner("Sedang memproses..."):
                 df_check = conn.read(worksheet="MASTER_DATA", ttl=0)
+                df_check = df_check.dropna(subset=['nik'])
+                df_check = df_check[~df_check['nik'].astype(str).str.strip().isin(['', 'nan', 'None'])]
                 if ni in df_check['nik'].astype(str).str.replace("'", "").tolist():
                     show_duplicate_popup(nm, ni)
                 else:
@@ -387,6 +429,8 @@ with btn_c4.expander("✏️ MENU EDIT DATA SISWA"):
     if st.button("CARI & EDIT DATA", type="secondary", use_container_width=True, key="btn_cari_edit"):
         if len(ed_nik) == 16:
             df_ed = conn.read(worksheet="MASTER_DATA", ttl=0)
+            df_ed = df_ed.dropna(subset=['nik'])
+            df_ed = df_ed[~df_ed['nik'].astype(str).str.strip().isin(['', 'nan', 'None'])].reset_index(drop=True)
             df_ed['nik_c'] = df_ed['nik'].astype(str).str.replace("'", "")
             idx = df_ed.index[df_ed['nik_c'] == ed_nik].tolist()
             if idx:
@@ -407,6 +451,11 @@ if 'idx_ed' in st.session_state:
     st.markdown('<div class="form-card"><h3>🖊️ Perbaikan Seluruh Data</h3>', unsafe_allow_html=True)
     with st.form("full_edit_form"):
         df_m = conn.read(worksheet="MASTER_DATA", ttl=0)
+        df_m = df_m.dropna(subset=['nik'])
+        df_m = df_m[~df_m['nik'].astype(str).str.strip().isin(['', 'nan', 'None'])]
+        
+        # Reset index to ensure consistency after dropna if index was preserved
+        df_m = df_m.reset_index(drop=True)
         curr = df_m.iloc[st.session_state.idx_ed]
         
         def safe_str(val):
