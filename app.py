@@ -51,6 +51,7 @@ def show_success_pendaftaran(nama):
 
 @st.dialog("📋 FORM PEMERIKSAAN KESEHATAN", width="large")
 def form_pemeriksaan_popup():
+    st.warning("⚠️ **Input Pemeriksaan ini khusus diisi oleh petugas kesehatan Puskesmas Purwokerto Selatan.**")
     st.info("Gunakan NIK atau Nama untuk mencari data siswa.")
     try:
         df_ref = get_cached_data("MASTER_DATA")
@@ -59,7 +60,7 @@ def form_pemeriksaan_popup():
         st.error("Gagal terhubung ke database.")
         return
 
-    v_nik, v_nama, v_sekolah, v_kelas = "", "", "", "1"
+    v_nik, v_nama, v_sekolah, v_kelas, v_tiket = "", "", "", "1", ""
     m_cari = st.radio("Metode Pencarian:", ["NIK", "Nama Lengkap"], horizontal=True, key="radio_cari_pemeriksaan")
 
     if m_cari == "NIK":
@@ -67,8 +68,10 @@ def form_pemeriksaan_popup():
         if len(s_nik) == 16:
             m = df_ref[df_ref['nik_clean'] == s_nik]
             if not m.empty:
-                v_nik, v_nama, v_sekolah = s_nik, m['nama_lengkap'].values[0], m['nama_sekolah'].values[0]
-                v_kelas = str(m['jenjang_pendidikan'].values[0]).replace("KELAS ", "")
+                r = m.iloc[0]
+                v_nik, v_nama, v_sekolah = s_nik, r['nama_lengkap'], r['nama_sekolah']
+                v_kelas = str(r['jenjang_pendidikan']).replace("KELAS ", "")
+                v_tiket = str(r.get('ID_TRANSAKSI', ''))
                 st.success(f"Siswa Ditemukan: {v_nama}")
     else:
         s_nama = st.text_input("Ketik Nama Siswa...", key="input_nama_pemeriksaan").upper()
@@ -80,66 +83,170 @@ def form_pemeriksaan_popup():
                     r = hits[hits['nama_lengkap'] == sel_nama].iloc[0]
                     v_nik, v_nama, v_sekolah = r['nik_clean'], r['nama_lengkap'], r['nama_sekolah']
                     v_kelas = str(r['jenjang_pendidikan']).replace("KELAS ", "")
+                    v_tiket = str(r.get('ID_TRANSAKSI', ''))
 
     st.markdown("---")
-    # Form khusus di dalam dialog agar tidak error "Missing Submit Button"
-    with st.form("form_aksi_pemeriksaan"):
-        c1, c2 = st.columns(2)
-        p_nik = c1.text_input("NIK Konfirmasi", value=v_nik, key="nik_konf_pemeriksaan")
-        p_nama = c2.text_input("Nama Konfirmasi", value=v_nama, key="nama_konf_pemeriksaan").upper()
-        
-        if st.form_submit_button("SIMPAN HASIL PEMERIKSAAN", use_container_width=True):
-            st.info("Fungsi simpan pemeriksaan sedang diproses...")
+    
+    if v_nik:
+        with st.form("form_aksi_pemeriksaan"):
+            st.markdown("### 👤 Data Siswa", unsafe_allow_html=True)
+            c1, c2 = st.columns(2)
+            c1.text_input("NIK", value=v_nik, disabled=True)
+            c2.text_input("Nama Lengkap", value=v_nama, disabled=True)
+            c1.text_input("Sekolah", value=v_sekolah, disabled=True)
+            c2.text_input("Kelas", value=f"KELAS {v_kelas}", disabled=True)
+            c1.text_input("No Tiket", value=v_tiket, disabled=True)
+            
+            st.markdown("### 🩺 Hasil Pemeriksaan", unsafe_allow_html=True)
+            gizi_c1, gizi_c2 = st.columns(2)
+            gizi_bb = gizi_c1.number_input("Berat Badan (gizi_bb) Kg", min_value=0.0, format="%.1f")
+            gizi_tb = gizi_c2.number_input("Tinggi Badan (gizi_tb) cm", min_value=0.0, format="%.1f")
+            
+            ukur_c1, ukur_c2 = st.columns(2)
+            lk = ukur_c1.number_input("Lingkar Kepala (lk) cm", min_value=0.0, format="%.1f")
+            lp = ukur_c2.number_input("Lingkar Perut (lp) cm", min_value=0.0, format="%.1f")
+            
+            tensi_c1, tensi_c2 = st.columns(2)
+            sistol = tensi_c1.number_input("Sistol", min_value=0)
+            diastol = tensi_c2.number_input("Diastol", min_value=0)
+            
+            kusta_c1, kusta_c2 = st.columns(2)
+            frambusia = kusta_c1.selectbox("Ada Papul Ulkus Frambusia?", ["Tidak Ada", "Ada"])
+            kusta = kusta_c2.selectbox("Bercak Putih Kusta?", ["Tidak Ada", "Ada"])
+            skabies = kusta_c1.selectbox("Koreng Skabies?", ["Tidak Ada", "Ada"])
+            
+            dengar_c1, dengar_c2 = st.columns(2)
+            dengar_ka = dengar_c1.selectbox("Gangguan Pendengaran Kanan?", ["Normal", "Tidak Normal"])
+            dengar_ki = dengar_c2.selectbox("Gangguan Pendengaran Kiri?", ["Normal", "Tidak Normal"])
+            
+            mata_c1, mata_c2 = st.columns(2)
+            mata_ka = mata_c1.selectbox("Tajam Mata Kanan?", ["Normal", "Tidak Normal"])
+            mata_ki = mata_c2.selectbox("Tajam Mata Kiri?", ["Normal", "Tidak Normal"])
+            kaca_mata = mata_c1.selectbox("Pakai Kacamata?", ["Tidak", "Iya"])
+            
+            gigi = st.selectbox("Pemeriksaan Gigi", ["Bagus", "Caries", "Gigi Berlubang", "Gigi Goyang", "Gigi Tumpang"])
+            
+            dm_c1, dm_c2 = st.columns(2)
+            dm = dm_c1.selectbox("Pernah Dinyatakan DM?", ["Tidak", "Iya"])
+            lama_dm = dm_c2.number_input("Berapa Tahun DM? (Kosongkan jika Tidak)", min_value=0) if dm == "Iya" else 0
+            
+            hasil_c1, hasil_c2 = st.columns(2)
+            gds = hasil_c1.number_input("Hasil GDS 1", min_value=0.0, format="%.1f")
+            hb = hasil_c2.number_input("Hasil HB", min_value=0.0, format="%.1f")
+            hasil = st.text_input("Hasil / Catatan Lainnya")
+            
+            if st.form_submit_button("SIMPAN HASIL PEMERIKSAAN", type="primary", use_container_width=True):
+                with st.spinner("Menyimpan ke database pemeriksaan..."):
+                    try:
+                        df_pem = conn.read(worksheet="MASTER_DATA_PEMERIKSAAN", ttl=0)
+                        
+                        # Data yang akan diinput
+                        new_data = {
+                            "Nama": v_nama,
+                            "NIK": f"'{v_nik}",
+                            "Nama Sekolah": v_sekolah,
+                            "Kelas": f"KELAS {v_kelas}",
+                            "Status Daftar": "Selesai",
+                            "Tiket": v_tiket,
+                            "Hadir": "Hadir",
+                            "gizi_bb": gizi_bb,
+                            "gizi_tb": gizi_tb,
+                            "lk": lk,
+                            "lp": lp,
+                            "sistol": sistol,
+                            "diastol": diastol,
+                            "ada_papul_ulkus_frambusia": frambusia,
+                            "bercak_putih_kusta": kusta,
+                            "Koreng_skabies": skabies,
+                            "gangguan_pendengaran_ka": dengar_ka,
+                            "gangguan_pendengaran_ki": dengar_ki,
+                            "tajam_mata_kanan": mata_ka,
+                            "tajam_mata_kiri": mata_ki,
+                            "kaca_mata": kaca_mata,
+                            "Pemeriksaan Gigi": gigi,
+                            "Pernah_dinyatakan_DM": dm,
+                            "Lama_DM": lama_dm,
+                            "Hasil_GDS_1": gds,
+                            "Hasil": hasil,
+                            "hasil_HB": hb
+                        }
+                        
+                        # SMART MAPPING: Cocokkan nama kolom (case-insensitive) agar tidak ada duplikasi kolom
+                        actual_cols = {str(c).lower().strip(): c for c in df_pem.columns}
+                        
+                        mapped_data = {}
+                        for k, v in new_data.items():
+                            lower_k = k.lower().strip()
+                            if lower_k in actual_cols:
+                                mapped_data[actual_cols[lower_k]] = v
+                            else:
+                                mapped_data[k] = v # Jika kolom benar-benar belum ada, buat baru pakai teks asli
+                                
+                        upd_pem = pd.concat([df_pem, pd.DataFrame([mapped_data])], ignore_index=True)
+                        conn.update(worksheet="MASTER_DATA_PEMERIKSAAN", data=upd_pem)
+                        
+                        st.success(f"Data Pemeriksaan {v_nama} Berhasil Disimpan!")
+                        time.sleep(2)
+                        st.session_state.show_pemeriksaan_form = False
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Koneksi Database bermasalah: {str(e)}")
 
 # --- STYLING ---
 def apply_ui_style(main_bg_img):
+    bg_css = ""
     try:
         with open(main_bg_img, "rb") as f:
             data = f.read()
         bin_str = base64.b64encode(data).decode()
-        st.markdown(f"""
-            <style>
-            [data-testid="stHeader"] {{background: rgba(0,0,0,0);}}
-            footer {{visibility: hidden;}}
-            .stApp {{
-                background: url("data:image/png;base64,{bin_str}");
-                background-size: cover; background-position: center; background-attachment: fixed;
-            }}
-            .stMainBlockContainer {{
-                background-color: rgba(15, 15, 15, 0.9);
-                padding: 2rem !important;
-                border-radius: 20px;
-                border: 1px solid rgba(255, 255, 255, 0.15);
-            }}
-            .form-card {{
-                background-color: rgba(255, 255, 255, 0.08);
-                padding: 20px;
-                border-radius: 12px;
-                margin-bottom: 25px;
-                border-left: 6px solid #25D366;
-            }}
-            .form-card h3 {{
-                margin-top: 0px !important;
-                color: #25D366 !important;
-                font-size: 20px !important;
-                font-weight: 700 !important;
-            }}
-            h1 {{ color: #FFFFFF !important; text-align: center; margin-bottom: 30px !important; }}
-            
-            .stButton > button[kind="secondary"] {{
-                background-color: #FF8C00 !important;
-                color: white !important;
-                border: none !important;
-            }}
-            
-            .btn-wa {{
-                background-color: #25D366; color: white !important; border-radius: 10px;
-                text-decoration: none; display: flex; align-items: center; justify-content: center;
-                font-weight: bold; height: 45px; width: 100%;
-            }}
-            </style>
-            """, unsafe_allow_html=True)
-    except: pass
+        bg_css = f"""
+        .stApp {{
+            background: url("data:image/png;base64,{bin_str}");
+            background-size: cover; background-position: center; background-attachment: fixed;
+        }}
+        """
+    except: 
+        pass
+
+    st.markdown(f"""
+        <style>
+        [data-testid="stHeader"] {{background: rgba(0,0,0,0);}}
+        footer {{visibility: hidden;}}
+        {bg_css}
+        .stMainBlockContainer {{
+            background-color: rgba(15, 15, 15, 0.9);
+            padding: 2rem !important;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }}
+        .form-card {{
+            background-color: rgba(255, 255, 255, 0.08);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            border-left: 6px solid #25D366;
+        }}
+        .form-card h3 {{
+            margin-top: 0px !important;
+            color: #25D366 !important;
+            font-size: 20px !important;
+            font-weight: 700 !important;
+        }}
+        h1 {{ color: #FFFFFF !important; text-align: center; margin-bottom: 30px !important; }}
+        
+        .stButton > button[kind="secondary"] {{
+            background-color: #FF8C00 !important;
+            color: white !important;
+            border: none !important;
+        }}
+        
+        .btn-wa {{
+            background-color: #25D366; color: white !important; border-radius: 10px;
+            text-decoration: none; display: flex; align-items: center; justify-content: center;
+            font-weight: bold; height: 45px; width: 100%;
+        }}
+        </style>
+        """, unsafe_allow_html=True)
 
 apply_ui_style("IMG_20260402_084603.jpg")
 
@@ -155,9 +262,9 @@ try:
     df_db = get_cached_data("MASTER_DATA")
     if not df_db.empty:
         c1, c2, c3 = st.columns(3)
-        c1.metric("Siswa SD/MI", len(df_db[df_db['jenjang_pendidikan'].str.contains('1|2|3|4|5|6', na=False)]))
-        c2.metric("Siswa SMP", len(df_db[df_db['jenjang_pendidikan'].str.contains('7|8|9', na=False)]))
-        c3.metric("Siswa SMA/SMK", len(df_db[df_db['jenjang_pendidikan'].str.contains('10|11|12', na=False)]))
+        c1.metric("Siswa SD/MI", len(df_db[df_db['jenjang_pendidikan'].isin([f"KELAS {i}" for i in range(1, 7)])]))
+        c2.metric("Siswa SMP", len(df_db[df_db['jenjang_pendidikan'].isin([f"KELAS {i}" for i in range(7, 10)])]))
+        c3.metric("Siswa SMA/SMK", len(df_db[df_db['jenjang_pendidikan'].isin([f"KELAS {i}" for i in range(10, 13)])]))
 except: pass
 
 # --- DATABASE SEKOLAH ---
@@ -228,6 +335,11 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 # --- SECTION 3: DOMISILI ---
 st.markdown('<div class="form-card"><h3>🏠 Informasi Tempat Tinggal</h3>', unsafe_allow_html=True)
+dom_c1, dom_c2 = st.columns(2)
+propinsi = dom_c1.text_input("Provinsi", placeholder="Contoh: Jawa Tengah", key=f"prop_{fk}")
+kabupaten = dom_c2.text_input("Kabupaten/Kota", placeholder="Contoh: Banyumas", key=f"kab_{fk}")
+kecamatan = dom_c1.text_input("Kecamatan", key=f"kec_{fk}")
+kelurahan = dom_c2.text_input("Kelurahan/Desa", key=f"kel_{fk}")
 dm = st.text_input("Alamat Singkat (RT/RW)", key=f"dm_{fk}")
 dt = st.text_area("Detail Alamat Lengkap", key=f"dt_{fk}")
 st.markdown('</div>', unsafe_allow_html=True)
@@ -251,6 +363,7 @@ if btn_c1.button("💾 SIMPAN DATA PENDAFTARAN", type="primary", use_container_w
                         "nik": f"'{ni}", "nama_lengkap": nm.upper(), "tanggal_lahir": str(tg),
                         "jenis_kelamin": str(gn), "no_whatsapp": f"'{wa}", "disabilitas": str(ds),
                         "nama_sekolah": sk, "jenjang_pendidikan": f"KELAS {ks}",
+                        "propinsi": propinsi, "kabupaten": kabupaten, "kecamatan": kecamatan, "kelurahan": kelurahan,
                         "alamat_domisili": dm, "detail_alamat": dt, "kesempatan_update": 2,
                         "TIMESTAMP": datetime.now().strftime("%Y-%m-%d %H:%M:%S"), "ID_TRANSAKSI": str(uuid.uuid4())[:8].upper()
                     }
@@ -278,7 +391,14 @@ with btn_c4.expander("✏️ MENU EDIT DATA SISWA"):
             idx = df_ed.index[df_ed['nik_c'] == ed_nik].tolist()
             if idx:
                 st.session_state.idx_ed = idx[0]
-                st.session_state.sisa_ed = int(df_ed.iloc[idx[0]].get('kesempatan_update', 2))
+                
+                # Logika aman untuk kesempatan_update
+                raw_val = df_ed.iloc[idx[0]].get('kesempatan_update')
+                if pd.isna(raw_val):
+                    st.session_state.sisa_ed = 2
+                else:
+                    st.session_state.sisa_ed = int(raw_val)
+                    
                 if st.session_state.sisa_ed <= 0: st.error("Kesempatan edit habis.")
                 else: st.success("Data ditemukan! Form muncul di bawah.")
             else: st.error("NIK tidak terdaftar.")
@@ -288,25 +408,39 @@ if 'idx_ed' in st.session_state:
     with st.form("full_edit_form"):
         df_m = conn.read(worksheet="MASTER_DATA", ttl=0)
         curr = df_m.iloc[st.session_state.idx_ed]
-        clean_nik = str(curr['nik']).replace("'", "")
-        clean_wa = str(curr['no_whatsapp']).replace("'", "")
+        
+        def safe_str(val):
+            return "" if pd.isna(val) else str(val)
+            
+        clean_nik = safe_str(curr.get('nik')).replace("'", "")
+        clean_wa = safe_str(curr.get('no_whatsapp')).replace("'", "")
         
         col_ed1, col_ed2 = st.columns(2)
-        u_nm = col_ed1.text_input("Nama Lengkap", value=curr['nama_lengkap'])
+        u_nm = col_ed1.text_input("Nama Lengkap", value=safe_str(curr.get('nama_lengkap')))
         u_ni = col_ed2.text_input("NIK (16 Digit)", value=clean_nik)
         
         try:
             val_tgl = pd.to_datetime(curr['tanggal_lahir']).date()
         except:
-            val_tgl = None
+            val_tgl = datetime(1999, 1, 1).date()
         # Tahun lahir minimal 1999 juga berlaku di menu edit
-        u_tg = col_ed1.date_input("Tanggal Lahir", value=val_tgl, min_value=datetime(1999, 1, 1))
+        try:
+            u_tg = col_ed1.date_input("Tanggal Lahir", value=val_tgl, min_value=datetime(1999, 1, 1))
+        except:
+            u_tg = col_ed1.date_input("Tanggal Lahir", min_value=datetime(1999, 1, 1))
         
         u_wa = col_ed2.text_input("WhatsApp", value=clean_wa)
-        u_sk = col_ed1.text_input("Nama Sekolah", value=curr['nama_sekolah'])
-        u_ks = col_ed2.text_input("Kelas (Contoh: KELAS 1)", value=curr['jenjang_pendidikan'])
-        u_dm = st.text_input("Alamat (RT/RW)", value=curr['alamat_domisili'])
-        u_dt = st.text_area("Detail Alamat", value=curr['detail_alamat'])
+        u_sk = col_ed1.text_input("Nama Sekolah", value=safe_str(curr.get('nama_sekolah')))
+        u_ks = col_ed2.text_input("Kelas (Contoh: KELAS 1)", value=safe_str(curr.get('jenjang_pendidikan')))
+        
+        col_ed3, col_ed4 = st.columns(2)
+        u_prop = col_ed3.text_input("Provinsi", value=safe_str(curr.get('propinsi')))
+        u_kab = col_ed4.text_input("Kabupaten/Kota", value=safe_str(curr.get('kabupaten')))
+        u_kec = col_ed3.text_input("Kecamatan", value=safe_str(curr.get('kecamatan')))
+        u_kel = col_ed4.text_input("Kelurahan/Desa", value=safe_str(curr.get('kelurahan')))
+        
+        u_dm = st.text_input("Alamat (RT/RW)", value=safe_str(curr.get('alamat_domisili')))
+        u_dt = st.text_area("Detail Alamat", value=safe_str(curr.get('detail_alamat')))
         
         st.warning(f"⚠️ Sisa kesempatan edit Anda: {st.session_state.sisa_ed} kali.")
         
@@ -314,12 +448,22 @@ if 'idx_ed' in st.session_state:
             if len(u_ni.strip()) != 16:
                 st.error("NIK harus 16 digit!")
             else:
+                # Pastikan tipe data kolom adalah object untuk menghindari Pandas dtype incompatibility error
+                for col in ['nama_lengkap', 'nik', 'tanggal_lahir', 'no_whatsapp', 'nama_sekolah', 'jenjang_pendidikan', 'propinsi', 'kabupaten', 'kecamatan', 'kelurahan', 'alamat_domisili', 'detail_alamat', 'kesempatan_update']:
+                    if col not in df_m.columns:
+                        df_m[col] = ""
+                    df_m[col] = df_m[col].astype('object')
+                    
                 df_m.at[st.session_state.idx_ed, 'nama_lengkap'] = u_nm.upper()
                 df_m.at[st.session_state.idx_ed, 'nik'] = f"'{u_ni.strip()}"
                 df_m.at[st.session_state.idx_ed, 'tanggal_lahir'] = str(u_tg)
                 df_m.at[st.session_state.idx_ed, 'no_whatsapp'] = f"'{u_wa.strip()}"
                 df_m.at[st.session_state.idx_ed, 'nama_sekolah'] = u_sk
                 df_m.at[st.session_state.idx_ed, 'jenjang_pendidikan'] = u_ks
+                df_m.at[st.session_state.idx_ed, 'propinsi'] = u_prop
+                df_m.at[st.session_state.idx_ed, 'kabupaten'] = u_kab
+                df_m.at[st.session_state.idx_ed, 'kecamatan'] = u_kec
+                df_m.at[st.session_state.idx_ed, 'kelurahan'] = u_kel
                 df_m.at[st.session_state.idx_ed, 'alamat_domisili'] = u_dm
                 df_m.at[st.session_state.idx_ed, 'detail_alamat'] = u_dt
                 df_m.at[st.session_state.idx_ed, 'kesempatan_update'] = st.session_state.sisa_ed - 1
@@ -343,11 +487,11 @@ with st.expander("🔍 CEK DAFTAR SISWA TERDAFTAR"):
         
         if j_f != "-- Pilih Jenjang --":
             # Filter sekolah berdasarkan jenjang pendidikan
-            if j_f == "SD/MI": keyword = '1|2|3|4|5|6'
-            elif j_f == "SMP": keyword = '7|8|9'
-            else: keyword = '10|11|12'
+            if j_f == "SD/MI": kls_target = [f"KELAS {i}" for i in range(1, 7)]
+            elif j_f == "SMP": kls_target = [f"KELAS {i}" for i in range(7, 10)]
+            else: kls_target = [f"KELAS {i}" for i in range(10, 13)]
             
-            df_filtered_jenjang = df_l[df_l['jenjang_pendidikan'].str.contains(keyword, na=False)]
+            df_filtered_jenjang = df_l[df_l['jenjang_pendidikan'].isin(kls_target)]
             sch_list = sorted(df_filtered_jenjang['nama_sekolah'].unique())
             
             s_f = f2.selectbox("Pilih Nama Sekolah", ["-- Pilih Sekolah --"] + sch_list, key="sf_filter")
