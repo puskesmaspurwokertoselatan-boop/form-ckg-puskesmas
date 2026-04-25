@@ -38,7 +38,7 @@ def reset_form():
 @st.dialog("⚠️ DATA SUDAH TERDAFTAR")
 def show_duplicate_popup(nama, nik):
     st.warning(f"NIK **{nik}** atas nama **{nama}** sudah terdata di sistem kami.")
-    if st.button("KOSONGKAN FORMULIR", use_container_width=True):
+    if st.button("KOSONGKAN FORMULIR", width="stretch"):
         reset_form()
         st.rerun()
 
@@ -46,7 +46,7 @@ def show_duplicate_popup(nama, nik):
 def show_success_pendaftaran(nama):
     st.success(f"Selamat! Data **{nama}** telah berhasil dikirim.")
     st.info("Pastikan data yang diinput sudah benar untuk keperluan skrining Kemenkes.")
-    if st.button("KEMBALI KE BERANDA", use_container_width=True):
+    if st.button("KEMBALI KE BERANDA", width="stretch"):
         reset_form()
         st.rerun()
 
@@ -61,7 +61,7 @@ def form_pemeriksaan_popup():
         st.error("Gagal terhubung ke database.")
         return
 
-    v_nik, v_nama, v_sekolah, v_kelas, v_tiket = "", "", "", "1", ""
+    v_nik, v_nama, v_sekolah, v_kelas, v_tiket, v_jk, v_tgl = "", "", "", "1", "", "", ""
     m_cari = st.radio("Metode Pencarian:", ["NIK", "Nama Lengkap"], horizontal=True, key="radio_cari_pemeriksaan")
 
     if m_cari == "NIK":
@@ -72,7 +72,11 @@ def form_pemeriksaan_popup():
                 r = m.iloc[0]
                 v_nik, v_nama, v_sekolah = s_nik, r['nama_lengkap'], r['nama_sekolah']
                 v_kelas = str(r['jenjang_pendidikan']).replace("KELAS ", "")
-                v_tiket = str(r.get('ID_TRANSAKSI', ''))
+                v_jk = str(r.get('jenis_kelamin', '-'))
+                v_tgl = str(r.get('tanggal_lahir', '-'))
+                # Handle nan Ticket ID
+                tkt_raw = r.get('ID_TRANSAKSI', '')
+                v_tiket = "" if pd.isna(tkt_raw) else str(tkt_raw)
                 st.success(f"Siswa Ditemukan: {v_nama}")
     else:
         s_nama = st.text_input("Ketik Nama Siswa...", key="input_nama_pemeriksaan").upper()
@@ -84,7 +88,11 @@ def form_pemeriksaan_popup():
                     r = hits[hits['nama_lengkap'] == sel_nama].iloc[0]
                     v_nik, v_nama, v_sekolah = r['nik_clean'], r['nama_lengkap'], r['nama_sekolah']
                     v_kelas = str(r['jenjang_pendidikan']).replace("KELAS ", "")
-                    v_tiket = str(r.get('ID_TRANSAKSI', ''))
+                    v_jk = str(r.get('jenis_kelamin', '-'))
+                    v_tgl = str(r.get('tanggal_lahir', '-'))
+                    # Handle nan Ticket ID
+                    tkt_raw = r.get('ID_TRANSAKSI', '')
+                    v_tiket = "" if pd.isna(tkt_raw) else str(tkt_raw)
 
     st.markdown("---")
     
@@ -96,31 +104,38 @@ def form_pemeriksaan_popup():
             c2.text_input("Nama Lengkap", value=v_nama, disabled=True)
             c1.text_input("Sekolah", value=v_sekolah, disabled=True)
             c2.text_input("Kelas", value=f"KELAS {v_kelas}", disabled=True)
-            c1.text_input("No Tiket", value=v_tiket, disabled=True)
+            
+            # Additional Details for confirmation
+            det1, det2, det3 = st.columns(3)
+            det1.text_input("Jenis Kelamin", value=v_jk, disabled=True)
+            det2.text_input("Tanggal Lahir", value=v_tgl, disabled=True)
+            det3.text_input("No Tiket", value=v_tiket, disabled=True)
             
             st.markdown("### 🩺 Hasil Pemeriksaan", unsafe_allow_html=True)
             gizi_c1, gizi_c2 = st.columns(2)
             gizi_bb = gizi_c1.number_input("Berat Badan (Kg)", min_value=0.0, format="%.1f")
             gizi_tb = gizi_c2.number_input("Tinggi Badan (cm)", min_value=0.0, format="%.1f")
             
-            # Live IMT Display
+            # --- LOGIKA IMT TERPADU ---
+            imt_val = 0.0
+            kategori_val = ""
             if gizi_bb > 0 and gizi_tb > 0:
-                live_tb_m = gizi_tb / 100.0
-                live_imt = gizi_bb / (live_tb_m * live_tb_m)
-                live_cat = "Obesitas"
-                if live_imt < 18.5: live_cat = "Kurus"
-                elif live_imt <= 25.0: live_cat = "Normal"
-                elif live_imt <= 27.0: live_cat = "Gemuk"
+                tb_m = gizi_tb / 100.0
+                imt_val = gizi_bb / (tb_m * tb_m)
+                if imt_val < 18.5: kategori_val = "Kurus"
+                elif imt_val <= 25.0: kategori_val = "Normal"
+                elif imt_val <= 27.0: kategori_val = "Gemuk"
+                else: kategori_val = "Obesitas"
                 
-                if live_cat == "Normal":
-                    st.success(f"📊 **IMT:** {live_imt:.1f} (Kategori: **{live_cat}**)")
-                elif live_cat == "Kurus":
-                    st.warning(f"📊 **IMT:** {live_imt:.1f} (Kategori: **{live_cat}**)")
+                # Display Live IMT
+                if kategori_val == "Normal":
+                    st.success(f"📊 **IMT:** {imt_val:.1f} (Kategori: **{kategori_val}**)")
+                elif kategori_val == "Kurus":
+                    st.warning(f"📊 **IMT:** {imt_val:.1f} (Kategori: **{kategori_val}**)")
                 else:
-                    st.error(f"📊 **IMT:** {live_imt:.1f} (Kategori: **{live_cat}**)")
+                    st.error(f"📊 **IMT:** {imt_val:.1f} (Kategori: **{kategori_val}**)")
             else:
                 st.info("💡 Masukkan Berat dan Tinggi Badan untuk melihat IMT otomatis.")
-            
             
             ukur_c1, ukur_c2 = st.columns(2)
             lk = ukur_c1.number_input("Lingkar Kepala (lk) cm", min_value=0.0, format="%.1f")
@@ -153,84 +168,85 @@ def form_pemeriksaan_popup():
             hasil_c1, hasil_c2 = st.columns(2)
             gds = hasil_c1.number_input("Hasil GDS 1", min_value=0.0, format="%.1f")
             hb = hasil_c2.number_input("Hasil HB", min_value=0.0, format="%.1f")
-            hasil = st.text_input("Hasil / Catatan Lainnya")
+            
+            # --- TAMBAHAN FIELD BARU ---
+            st.markdown("### ➕ Tambahan Informasi", unsafe_allow_html=True)
+            new_c1, new_c2 = st.columns(2)
+            imunisasi = new_c1.selectbox("Imunisasi", ["Lengkap", "Tidak"])
+            merokok = new_c2.selectbox("Kebiasaan Merokok", ["Tidak", "Ya"])
+            
+            rujuk = st.text_input("Rujuk", placeholder="Tulis rujukan jika diperlukan...")
+            keterangan = st.text_area("Keterangan / Hasil Catatan Lainnya", placeholder="Catatan tambahan petugas...")
             
             st.markdown("<br>", unsafe_allow_html=True)
-            if st.button("SIMPAN HASIL PEMERIKSAAN", type="primary", use_container_width=True):
-                with st.spinner("Menyimpan ke database pemeriksaan..."):
-                    try:
-                        df_pem = conn.read(worksheet="MASTER_DATA_PEMERIKSAAN", ttl=0)
-                        df_pem = df_pem.dropna(subset=['NIK'])
-                        df_pem = df_pem[~df_pem['NIK'].astype(str).str.strip().isin(['', 'nan', 'None'])]
-                        
-                        # Kalkulasi IMT otomatis
-                        imt_val = 0.0
-                        kategori_val = ""
-                        if gizi_tb > 0 and gizi_bb > 0:
-                            tb_m = gizi_tb / 100.0
-                            imt_val = gizi_bb / (tb_m * tb_m)
-                            if imt_val < 18.5:
-                                kategori_val = "Kurus"
-                            elif imt_val <= 25.0:
-                                kategori_val = "Normal"
-                            elif imt_val <= 27.0:
-                                kategori_val = "Gemuk"
-                            else:
-                                kategori_val = "Obesitas"
-                        
-                        # Data yang akan diinput
-                        new_data = {
-                            "Nama": v_nama,
-                            "NIK": f"'{v_nik}",
-                            "Nama Sekolah": v_sekolah,
-                            "Kelas": f"KELAS {v_kelas}",
-                            "Status Daftar": "Selesai",
-                            "Tiket": v_tiket,
-                            "Hadir": "Hadir",
-                            "gizi_bb": gizi_bb,
-                            "gizi_tb": gizi_tb,
-                            "kategori_imt": round(imt_val, 2) if imt_val > 0 else "",
-                            "kategori": kategori_val,
-                            "lk": lk,
-                            "lp": lp,
-                            "sistol": sistol,
-                            "diastol": diastol,
-                            "ada_papul_ulkus_frambusia": frambusia,
-                            "bercak_putih_kusta": kusta,
-                            "Koreng_skabies": skabies,
-                            "gangguan_pendengaran_ka": dengar_ka,
-                            "gangguan_pendengaran_ki": dengar_ki,
-                            "tajam_mata_kanan": mata_ka,
-                            "tajam_mata_kiri": mata_ki,
-                            "kaca_mata": kaca_mata,
-                            "Pemeriksaan Gigi": gigi,
-                            "Pernah_dinyatakan_DM": dm,
-                            "Lama_DM": lama_dm,
-                            "Hasil_GDS_1": gds,
-                            "Hasil": hasil,
-                            "hasil_HB": hb
-                        }
-                        
-                        # SMART MAPPING: Cocokkan nama kolom (case-insensitive) agar tidak ada duplikasi kolom
-                        actual_cols = {str(c).lower().strip(): c for c in df_pem.columns}
-                        
-                        mapped_data = {}
-                        for k, v in new_data.items():
-                            lower_k = k.lower().strip()
-                            if lower_k in actual_cols:
-                                mapped_data[actual_cols[lower_k]] = v
-                            else:
-                                mapped_data[k] = v # Jika kolom benar-benar belum ada, buat baru pakai teks asli
-                                
-                        upd_pem = pd.concat([df_pem, pd.DataFrame([mapped_data])], ignore_index=True)
-                        conn.update(worksheet="MASTER_DATA_PEMERIKSAAN", data=upd_pem)
-                        
-                        st.success(f"Data Pemeriksaan {v_nama} Berhasil Disimpan!")
-                        time.sleep(2)
-                        st.session_state.show_pemeriksaan_form = False
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Koneksi Database bermasalah: {str(e)}")
+            if st.button("SIMPAN HASIL PEMERIKSAAN", type="primary", width="stretch"):
+                if gizi_bb <= 0 or gizi_tb <= 0:
+                    st.error("Gagal! Berat Badan dan Tinggi Badan harus diisi (lebih dari 0).")
+                else:
+                    with st.spinner("Menyimpan ke database pemeriksaan..."):
+                        try:
+                            df_pem = conn.read(worksheet="MASTER_DATA_PEMERIKSAAN", ttl=0)
+                            # Pembersihan Ghost Rows
+                            df_pem = df_pem.dropna(subset=['NIK'])
+                            df_pem = df_pem[~df_pem['NIK'].astype(str).str.strip().isin(['', 'nan', 'None'])]
+                            
+                            # Data yang akan diinput (Gunakan Nama Kolom Sesuai Permintaan)
+                            new_data = {
+                                "Nama": v_nama,
+                                "NIK": f"'{v_nik}",
+                                "Nama Sekolah": v_sekolah,
+                                "Kelas": f"KELAS {v_kelas}",
+                                "Status Daftar": "Selesai",
+                                "Tiket": v_tiket,
+                                "Hadir": "Hadir",
+                                "gizi_bb": gizi_bb,
+                                "gizi_tb": gizi_tb,
+                                "kategori_imt": round(imt_val, 2) if imt_val > 0 else "",
+                                "kategori": kategori_val,
+                                "lk": lk,
+                                "lp": lp,
+                                "sistol": sistol,
+                                "diastol": diastol,
+                                "ada_papul_ulkus_frambusia": frambusia,
+                                "bercak_putih_kusta": kusta,
+                                "Koreng_skabies": skabies,
+                                "gangguan_pendengaran_ka": dengar_ka,
+                                "gangguan_pendengaran_ki": dengar_ki,
+                                "tajam_mata_kanan": mata_ka,
+                                "tajam_mata_kiri": mata_ki,
+                                "kaca_mata": kaca_mata,
+                                "Pemeriksaan Gigi": gigi,
+                                "Pernah_dinyatakan_DM": dm,
+                                "Lama_DM": lama_dm,
+                                "Hasil_GDS_1": gds,
+                                "Hasil": keterangan, # Gunakan keterangan sebagai hasil utama
+                                "hasil_HB": hb,
+                                "Kebiasaan Merokok": merokok,
+                                "Imunisasi": imunisasi,
+                                "Rujuk": rujuk,
+                                "Keterangan": keterangan
+                            }
+                            
+                            # SMART MAPPING: Cocokkan nama kolom (case-insensitive) agar tidak ada duplikasi kolom
+                            actual_cols = {str(c).lower().strip(): c for c in df_pem.columns}
+                            
+                            mapped_data = {}
+                            for k, v in new_data.items():
+                                lower_k = k.lower().strip()
+                                if lower_k in actual_cols:
+                                    mapped_data[actual_cols[lower_k]] = v
+                                else:
+                                    mapped_data[k] = v 
+                                    
+                            upd_pem = pd.concat([df_pem, pd.DataFrame([mapped_data])], ignore_index=True)
+                            conn.update(worksheet="MASTER_DATA_PEMERIKSAAN", data=upd_pem)
+                            
+                            st.success(f"Data Pemeriksaan {v_nama} Berhasil Disimpan!")
+                            time.sleep(2)
+                            st.session_state.show_pemeriksaan_form = False
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Koneksi Database bermasalah: {str(e)}")
 
 # --- STYLING ---
 def apply_ui_style(main_bg_img):
@@ -388,7 +404,7 @@ st.markdown('</div>', unsafe_allow_html=True)
 st.markdown("<br>", unsafe_allow_html=True)
 btn_c1, btn_c2 = st.columns(2)
 
-if btn_c1.button("💾 SIMPAN DATA PENDAFTARAN", type="primary", use_container_width=True):
+if btn_c1.button("💾 SIMPAN DATA PENDAFTARAN", type="primary", width="stretch"):
     inv = ["-- Pilih --", "-- Pilih Jenjang --", "-- Pilih Kelas --", "-- Pilih Kelurahan --", "-- Pilih Sekolah --", "", None]
     if any(x in inv for x in [nm, jn, ks, sk]) or len(ni) != 16:
         st.error("Gagal! Mohon lengkapi seluruh data wajib dan pastikan NIK 16 digit.")
@@ -419,14 +435,14 @@ btn_c2.markdown('<a href="https://wa.me/6289665803467" class="btn-wa">💬 HUBUN
 st.markdown("<br>", unsafe_allow_html=True)
 btn_c3, btn_c4 = st.columns(2)
 
-if btn_c3.button("📋 INPUT PEMERIKSAAN KESEHATAN", use_container_width=True, key="btn_pemeriksaan_main"):
+if btn_c3.button("📋 INPUT PEMERIKSAAN KESEHATAN", width="stretch", key="btn_pemeriksaan_main"):
     st.session_state.show_pemeriksaan_form = True
     st.rerun()
 
 # --- MENU EDIT DATA SISWA ---
 with btn_c4.expander("✏️ MENU EDIT DATA SISWA"):
     ed_nik = st.text_input("Input NIK untuk Koreksi", key="search_edit_nik")
-    if st.button("CARI & EDIT DATA", type="secondary", use_container_width=True, key="btn_cari_edit"):
+    if st.button("CARI & EDIT DATA", type="secondary", width="stretch", key="btn_cari_edit"):
         if len(ed_nik) == 16:
             df_ed = conn.read(worksheet="MASTER_DATA", ttl=0)
             df_ed = df_ed.dropna(subset=['nik'])
@@ -493,7 +509,7 @@ if 'idx_ed' in st.session_state:
         
         st.warning(f"⚠️ Sisa kesempatan edit Anda: {st.session_state.sisa_ed} kali.")
         
-        if st.form_submit_button("SIMPAN PERUBAHAN DATA", use_container_width=True):
+        if st.form_submit_button("SIMPAN PERUBAHAN DATA", width="stretch"):
             if len(u_ni.strip()) != 16:
                 st.error("NIK harus 16 digit!")
             else:
@@ -557,7 +573,7 @@ with st.expander("🔍 CEK DAFTAR SISWA TERDAFTAR"):
                 if c_f != "Semua Kelas":
                     res = res[res['jenjang_pendidikan'] == c_f]
                 
-                st.dataframe(res[['nama_lengkap', 'jenjang_pendidikan']], use_container_width=True, hide_index=True)
+                st.dataframe(res[['nama_lengkap', 'jenjang_pendidikan']], width="stretch", hide_index=True)
             else:
                 st.info("Pilih Nama Sekolah untuk melihat daftar.")
         else:
